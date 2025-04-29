@@ -1,0 +1,16 @@
+{"time":"2025-04-29T01:13:30.025320061+08:00","level":"INFO","msg":"stream: starting","core version":"0.19.10","symlink path":"saved_models_logs/ResNet34PilotNet_2025-04-29-01.13.24/wandb/run-20250429_011329-j9v5mrpk/logs/debug-core.log"}
+{"time":"2025-04-29T01:13:30.508645765+08:00","level":"INFO","msg":"created new stream","id":"j9v5mrpk"}
+{"time":"2025-04-29T01:13:30.508709035+08:00","level":"INFO","msg":"stream: started","id":"j9v5mrpk"}
+{"time":"2025-04-29T01:13:30.508804889+08:00","level":"INFO","msg":"writer: Do: started","stream_id":"j9v5mrpk"}
+{"time":"2025-04-29T01:13:30.508855662+08:00","level":"INFO","msg":"sender: started","stream_id":"j9v5mrpk"}
+{"time":"2025-04-29T01:13:30.509303494+08:00","level":"INFO","msg":"handler: started","stream_id":"j9v5mrpk"}
+{"time":"2025-04-29T01:13:30.935339335+08:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-04-29T01:27:16.738387315+08:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-04-29T01:27:16.738412479+08:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-04-29T01:27:17.742267663+08:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading output.log","runtime_seconds":0.379084547,"progress":"370B/370B"},{"desc":"uploading wandb-summary.json","runtime_seconds":0.37906214,"progress":"170B/170B"}],"total_operations":2}}
+{"time":"2025-04-29T01:27:18.27976167+08:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-04-29T01:27:18.686969928+08:00","level":"INFO","msg":"stream: closing","id":"j9v5mrpk"}
+{"time":"2025-04-29T01:27:18.687005494+08:00","level":"INFO","msg":"handler: closed","stream_id":"j9v5mrpk"}
+{"time":"2025-04-29T01:27:18.687024557+08:00","level":"INFO","msg":"writer: Close: closed","stream_id":"j9v5mrpk"}
+{"time":"2025-04-29T01:27:18.687103085+08:00","level":"INFO","msg":"sender: closed","stream_id":"j9v5mrpk"}
+{"time":"2025-04-29T01:27:18.687161617+08:00","level":"INFO","msg":"stream: closed","id":"j9v5mrpk"}
