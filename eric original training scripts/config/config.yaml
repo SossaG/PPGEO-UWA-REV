@@ -1,0 +1,155 @@
+wandb:
+  project: eglinton_bus
+  name: ${model.name}
+  sync_tensorboard: True
+  log_dir: logs
+  #mode: 'offline'
+  mode: 'online'
+# Model architecture and hyperparameters
+model:
+  name: SGrayEfficientNetV2SD1 # Model name: u=uncertainty, S=Single Camera, Gray=GrayScale, Res=ResidualBlock, PilotNet=End-to-End PilotNet
+  pretrained: True
+  trainable: True
+  training: True
+  compile:
+    loss: ['mae', 'mae']
+    optimizer:
+      type: Adam
+      learning_rate: 1e-5
+    loss_weights: [1, 1]
+    metrics: ['mae', 'mae']
+# Training parameters
+training:
+  #cmd_list: ["cmd_0", "cmd_1", "cmd_2", "cmd_3"]
+  cmd_list: ["cmd_0"]
+  epochs: 200
+  batch_size: 4
+  random_seed: 42
+  shuffle: True
+  load_checkpoint: True
+  save_model_dir: "saved_models_logs" #relative path to save model
+  checkpoint_lr: 0
+  train_ratio: 0.8
+  valid_ratio: 0.199
+  train_coeff: 1
+  valid_coeff: 1
+  test_coeff: 1
+  callbacks:
+    - type: ModelCheckpoint
+      filepath: ${model.name}.keras #relative path to save model
+      monitor: 'val_loss'
+      mode: 'min'
+      save_best_only: True
+      save_freq: epoch
+      verbose: 0
+    - type: EarlyStopping
+      monitor: 'val_loss'
+      mode: 'min'
+      patience: 3
+      verbose: 0  
+    - type: ReduceLROnPlateau
+      monitor: "val_loss"
+      factor: 0.5
+      patience: 1
+      min_lr: 5e-7
+      verbose: 2
+    - type: TensorBoard
+      log_dir: ${wandb.log_dir}
+      histogram_freq: 1
+      update_freq: epoch
+      write_graph: True
+      write_images: True
+
+dataset:
+  sorted_data_path: "sorted_eglinton_data" #relative path to sorted data
+  shuffle: True
+  dataset_mapping:
+    0: "CIL_Dual_Cam_Stage1"
+    1: "CIL_Dual_Cam_Stage2"
+    2: "CIL_Dual_Cam_Stage2_B"
+    3: "three_roundabouts_front_cam_only"
+    4: "CIL_Dual_Cam_Stage2_First_Half"
+    5: "CIL_Dual_Cam_Stage2_Second_Half"
+
+  dataset_idx_list: [2, 3, 4, 5]
+  #dataset_idx_list: [2]
+
+  behavior_lists:
+    main:
+      list:
+        - "lane_following"
+    cmd_0:
+      main_div: 1
+      branch_multi: 1
+      list:
+        - "lane_bay_pass"
+        - "roundabout_straight"
+        - "intersection_lane_following"
+        - "startpoint_out"
+        - "startpoint_in"
+        - "carpark_pass"
+        - "roundabout_right_turn"
+        - "lane_empty_bay"
+        - "lane_empty_bay_first_half"
+        - "lane_empty_bay_second_half"
+        - "pullout"
+    cmd_1:
+      main_div: 10
+      branch_multi: 1
+      list:
+        - "pullin"
+        - "roundabout_turn_around_to_office"
+        - "intersection_turn_around_to_office"
+        - "startpoint_out"
+        - "startpoint_in"
+        - "carpark_entry"
+        - "roundabout_right_turn"
+        - "pullin_stops"
+        - "carpark_left_turn_in"
+        - "carpark_left_turn_out"
+    cmd_2:
+      main_div: 10
+      branch_multi: 1
+      list:
+        - "reverse"
+        - "roundabout_turn_around_to_beach"
+        - "intersection_turn_around_to_beach"
+        - "startpoint_out"
+        - "startpoint_in"
+        - "carpark_entry"
+        - "roundabout_right_turn"
+        - "pullout_stops"
+        - "reverse_manual"
+        - "carpark_left_turn_in"
+        - "carpark_left_turn_out"
+    cmd_3:
+      main_div: 10 #can not be 0
+      branch_multi: 1
+      list:
+        - "carpark_dualsteering"
+        - "cul_de_sac_dualsteering"
+  
+augmentation:
+  # Data augmentation
+  augment_data: True
+  augment_prob: 0.05
+
+  horizontal_flip: False
+
+  add_blur: True
+  blur_range: 5 #max blur kernel size
+
+  add_noise: False
+  noise_range: 0.02
+
+  adjust_brightness: False
+  brightness_range: 0.05
+
+  add_shadow: False
+  shadow_range: 0.1
+  # Data shifting
+  horizontal_shift: True
+  steering_shift_factor: 0.2
+  # Data rotation
+  horizontal_rotate: False
+  steering_rotate_factor: 0.2
