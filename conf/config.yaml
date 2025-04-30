@@ -126,16 +126,16 @@ dataset:
         - "cul_de_sac_dualsteering"
 
 augmentation:
-  augment_data: False
+  augment_data: True
   augment_prob: 0.05
-  horizontal_flip: False
+  horizontal_flip: True
   add_blur: True
   blur_range: 5
-  add_noise: False
+  add_noise: True
   noise_range: 0.02
-  adjust_brightness: False
+  adjust_brightness: True
   brightness_range: 0.05
-  add_shadow: False
+  add_shadow: True
   shadow_range: 0.1
   horizontal_shift: True
   steering_shift_factor: 0.2
