@@ -1,20 +1,17 @@
-# dataset.py - PyTorch reimplementation of Eric's npy-based grayscale dataset with augmentation
+
+# dataset.py - Enhanced PyTorch version with Eric-style augmentation logic
 
 import os
 import numpy as np
 import torch
 from torch.utils.data import Dataset
-
 import cv2
 
 class EGLintonDataset(Dataset):
-    # dataset.py - PyTorch reimplementation of Eric's npy-based grayscale dataset with augmentation
-
     def __init__(self, cfg, subset='train'):
         self.cfg = cfg
         self.subset = subset
 
-        # dataset loading logic
         data_dir = os.path.join(os.path.dirname(__file__), cfg['dataset']['sorted_data_path'])
         self.dataset_idx_list = cfg['dataset']['dataset_idx_list']
         self.dataset_mapping = cfg['dataset']['dataset_mapping']
@@ -22,9 +19,7 @@ class EGLintonDataset(Dataset):
 
         self.files = []
         self._populate_files(data_dir)
-        self.batch_size = cfg['training']['batch_size']
 
-        # split dataset
         train_ratio = cfg['training']['train_ratio']
         valid_ratio = cfg['training']['valid_ratio']
         test_ratio = 1 - train_ratio - valid_ratio
@@ -35,30 +30,22 @@ class EGLintonDataset(Dataset):
 
         if subset == 'train':
             self.files = self.files[:train_end]
-            # Apply train_coeff if specified
             if 'train_coeff' in cfg['training']:
                 coeff = cfg['training']['train_coeff']
-                limit = int(len(self.files) * coeff)
-                self.files = self.files[:limit]
-
+                self.files = self.files[:int(len(self.files) * coeff)]
         elif subset == 'val':
             self.files = self.files[train_end:val_end]
-            # Apply valid_coeff if specified
             if 'valid_coeff' in cfg['training']:
                 coeff = cfg['training']['valid_coeff']
-                limit = int(len(self.files) * coeff)
-                self.files = self.files[:limit]
-
+                self.files = self.files[:int(len(self.files) * coeff)]
         else:
             self.files = self.files[val_end:]
-            # (you could apply test_coeff here too if needed)
 
         self.aug_cfg = cfg['augmentation']
 
     def _populate_files(self, base_path):
         for idx in self.dataset_idx_list:
             base_folder = os.path.join(base_path, self.dataset_mapping[idx])
-
             for cmd_key, cmd_spec in self.behavior_lists.items():
                 if cmd_key == 'main':
                     continue
@@ -77,7 +64,6 @@ class EGLintonDataset(Dataset):
     def __getitem__(self, idx):
         npy = np.load(self.files[idx], allow_pickle=True)
 
-        # Handle different npy formats
         if len(npy) == 10:
             image, speed, steering = npy[0], npy[8], npy[9]
         elif len(npy) == 8:
@@ -85,61 +71,61 @@ class EGLintonDataset(Dataset):
         elif len(npy) == 5:
             image, speed, steering = npy[0], npy[1], npy[2]
         else:
-            new_idx = np.random.randint(0, len(self.files))
-            return self.__getitem__(new_idx)
+            return self.__getitem__(np.random.randint(0, len(self.files)))
 
-        # --- Skip very small images BEFORE resize ---
         if image.shape[0] < 230 or image.shape[1] < 400:
-            new_idx = np.random.randint(0, len(self.files))
-            return self.__getitem__(new_idx)
-        # ---------------------------------------------
+            return self.__getitem__(np.random.randint(0, len(self.files)))
 
-        # Center crop if needed
         if image.shape[1] >= 440:
             image = image[:, 40:440]
-
-        # Resize safely
         image = cv2.resize(image, (400, 240))
-
-        # --- After resize, validate final shape ---
         if image.shape != (240, 400):
-            new_idx = np.random.randint(0, len(self.files))
-            return self.__getitem__(new_idx)
-        # -------------------------------------------
+            return self.__getitem__(np.random.randint(0, len(self.files)))
 
-        # Normalize
-        image = ((image / 127.5) - 1.0).astype(np.float32)
-        image = np.expand_dims(image, axis=0)  # (1, 240, 400)
-
-        # Augmentations
         if self.aug_cfg['augment_data'] and np.random.rand() < self.aug_cfg['augment_prob']:
-            image = self.apply_augmentations(image)
+            image, steering = self.apply_augmentations(image, steering)
+
+        image = ((image / 127.5) - 1.0).astype(np.float32)
+        image = np.expand_dims(image, axis=0)
 
         return torch.tensor(image), torch.tensor([speed], dtype=torch.float32), torch.tensor([steering], dtype=torch.float32)
 
+    def apply_augmentations(self, image, steering):
+        # Horizontal flip
+        if self.aug_cfg['horizontal_flip'] and np.random.rand() < 0.5:
+            image = cv2.flip(image, 1)
+            steering = -steering
 
-
-
-
-
-
-    def apply_augmentations(self, image):
+        # Blur
         if self.aug_cfg['add_blur']:
             k = np.random.randint(1, self.aug_cfg['blur_range'] + 1)
-            if k % 2 == 0: k += 1  # must be odd
+            if k % 2 == 0: k += 1
             image = cv2.GaussianBlur(image, (k, k), 0)
 
+        # Brightness
         if self.aug_cfg['adjust_brightness']:
             factor = np.random.uniform(1 - self.aug_cfg['brightness_range'], 1 + self.aug_cfg['brightness_range'])
             image = np.clip(image * factor, 0, 255).astype(np.uint8)
 
+        # Noise
         if self.aug_cfg['add_noise']:
             noise = np.random.randn(*image.shape) * 255 * self.aug_cfg['noise_range']
             image = np.clip(image + noise, 0, 255).astype(np.uint8)
 
+        # Shadow (basic straight-line version)
+        if self.aug_cfg['add_shadow']:
+            h, w = image.shape
+            x1, x2 = np.random.randint(0, w, 2)
+            shadow_mask = np.zeros_like(image)
+            cv2.fillPoly(shadow_mask, np.array([[[x1, 0], [x2, h], [w, h], [0, h]]]), 255)
+            shadow_factor = np.random.uniform(1 - self.aug_cfg['shadow_range'], 1)
+            image = np.where(shadow_mask == 255, image * shadow_factor, image).astype(np.uint8)
+
+        # Horizontal shift
         if self.aug_cfg['horizontal_shift']:
             max_shift = 80
             i = np.random.randint(0, max_shift)
-            shift = int((40 - i) * self.aug_cfg['steering_shift_factor'])
+            steering -= (40 - i) / 40 * self.aug_cfg['steering_shift_factor']
             image = image[:, i:(400+i)]
-        return image
+
+        return image, steering
