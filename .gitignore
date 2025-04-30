@@ -1,0 +1,34 @@
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.npy
+
+# VSCode / PyCharm
+.vscode/
+.idea/
+
+# Saved models and logs
+saved_models_logs/
+logs/
+wandb/
+*.pt
+*.onnx
+*.tflite
+*.keras
+
+# Environment files
+.env
+*.egg-info/
+env/
+venv/
+.venv/
+
+# Jupyter and debugging
+.ipynb_checkpoints/
+*.log
+.DS_Store
+
+# System files
+Thumbs.db
