@@ -128,12 +128,12 @@ dataset:
 augmentation:
   augment_data: True
   augment_prob: 0.05
-  horizontal_flip: True
+  horizontal_flip: False
   add_blur: True
   blur_range: 5
   add_noise: True
   noise_range: 0.02
-  adjust_brightness: True
+  adjust_brightness: False
   brightness_range: 0.05
   add_shadow: True
   shadow_range: 0.1
