@@ -27,8 +27,8 @@ training:
   load_checkpoint: False
   save_model_dir: "saved_models_logs"
   checkpoint_lr: 0
-  train_ratio: 0.8
-  valid_ratio: 0.2
+  train_ratio: 0.5
+  valid_ratio: 0.5
   train_coeff: 0.03
   valid_coeff: 0.03
   test_coeff: 1
@@ -126,7 +126,7 @@ dataset:
         - "cul_de_sac_dualsteering"
 
 augmentation:
-  augment_data: True
+  augment_data: False
   augment_prob: 0.05
   horizontal_flip: False
   add_blur: True

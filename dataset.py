@@ -27,12 +27,14 @@ class EGLintonDataset(Dataset):
         val_end = train_end + int(valid_ratio * total_len)
 
         if subset == 'train':
-            self.files = self.files[:train_end]
+            #self.files = self.files[:train_end]   ---change to next line for now to try location swap for val loss issue (eric)
+            self.files = self.files[val_end:train_end]
             if 'train_coeff' in cfg['training']:
                 coeff = cfg['training']['train_coeff']
                 self.files = self.files[:int(len(self.files) * coeff)]
         elif subset == 'val':
-            self.files = self.files[train_end:val_end]
+            #self.files = self.files[train_end:val_end]      ---change to next line for now to try location swap for val loss issue (eric)
+            self.files = self.files[:val_end]
             if 'valid_coeff' in cfg['training']:
                 coeff = cfg['training']['valid_coeff']
                 self.files = self.files[:int(len(self.files) * coeff)]
