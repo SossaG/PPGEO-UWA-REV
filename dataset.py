@@ -23,8 +23,14 @@ class EGLintonDataset(Dataset):
         test_ratio = 1 - train_ratio - valid_ratio
 
         total_len = len(self.files)
+
+        # Swap: treat first 50% as val, next 50% as train
+        val_end = int(valid_ratio * total_len)
+        train_end = val_end + int(train_ratio * total_len)
+
+        """
         train_end = int(train_ratio * total_len)
-        val_end = train_end + int(valid_ratio * total_len)
+        val_end = train_end + int(valid_ratio * total_len)                  ---try location swap for val loss issue (eric)"""
 
         if subset == 'train':
             #self.files = self.files[:train_end]   ---change to next line for now to try location swap for val loss issue (eric)
