@@ -22,6 +22,10 @@ class EGLintonDataset(Dataset):
         valid_ratio = cfg['training']['valid_ratio']
         test_ratio = 1 - train_ratio - valid_ratio
 
+        # Shuffle the dataset file list before slicing (matches Eric's original logic)
+        if self.cfg.get('dataset', {}).get('shuffle', False):
+            import random  # Added for shuffling support
+            random.shuffle(self.files)  # <-- This enables file-level shuffling before split
         total_len = len(self.files)
 
         # Swap: treat first 50% as val, next 50% as train
