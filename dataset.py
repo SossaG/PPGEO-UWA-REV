@@ -26,25 +26,19 @@ class EGLintonDataset(Dataset):
         if self.cfg.get('dataset', {}).get('shuffle', False):
             import random  # Added for shuffling support
             random.shuffle(self.files)  # <-- This enables file-level shuffling before split
+
         total_len = len(self.files)
 
-        # Swap: treat first 50% as val, next 50% as train
-        val_end = int(valid_ratio * total_len)
-        train_end = val_end + int(train_ratio * total_len)
-
-        """
-        train_end = int(train_ratio * total_len)
-        val_end = train_end + int(valid_ratio * total_len)                  ---try location swap for val loss issue (eric)"""
-
+        train_end = int(self.cfg['training']['train_ratio'] * total_len)
+        val_end = train_end + int(self.cfg['training']['valid_ratio'] * total_len)
+        
         if subset == 'train':
-            #self.files = self.files[:train_end]   ---change to next line for now to try location swap for val loss issue (eric)
-            self.files = self.files[val_end:train_end]
+            self.files = self.files[:train_end]
             if 'train_coeff' in cfg['training']:
                 coeff = cfg['training']['train_coeff']
                 self.files = self.files[:int(len(self.files) * coeff)]
         elif subset == 'val':
-            #self.files = self.files[train_end:val_end]      ---change to next line for now to try location swap for val loss issue (eric)
-            self.files = self.files[:val_end]
+            self.files = self.files[train_end:val_end]
             if 'valid_coeff' in cfg['training']:
                 coeff = cfg['training']['valid_coeff']
                 self.files = self.files[:int(len(self.files) * coeff)]
