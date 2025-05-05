@@ -60,7 +60,9 @@ def validate_epoch(model, dataloader, criterion, device):
 
             loss_speed = criterion(pred_speed, speed_labels)
             loss_steer = criterion(pred_steer, steer_labels)
-            loss = loss_speed + loss_steer
+            loss_weights = cfg['model']['compile'].get('loss_weights', [1.0, 1.0])
+            loss = loss_weights[0] * loss_speed + loss_weights[1] * loss_steer
+
 
             total_loss += loss.item()
             total_loss_steer += loss_steer.item()
