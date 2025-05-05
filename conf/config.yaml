@@ -29,8 +29,8 @@ training:
   checkpoint_lr: 0
   train_ratio: 0.8
   valid_ratio: 0.2
-  train_coeff: 0.03
-  valid_coeff: 0.03
+  train_coeff: 1
+  valid_coeff: 1
   test_coeff: 1
   callbacks:
     - type: ModelCheckpoint
@@ -128,12 +128,12 @@ dataset:
 augmentation:
   augment_data: True
   augment_prob: 0.05
-  horizontal_flip: True
+  horizontal_flip: False
   add_blur: True
   blur_range: 5
   add_noise: True
   noise_range: 0.02
-  adjust_brightness: True
+  adjust_brightness: False
   brightness_range: 0.05
   add_shadow: True
   shadow_range: 0.1
