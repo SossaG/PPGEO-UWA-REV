@@ -1,6 +1,6 @@
 wandb:
   project: eglinton_bus
-  name: ResNet34PilotNet_run1  # fixed to avoid ${model.name} error
+  name: ResNet34PilotNet_run2  # fixed to avoid ${model.name} error
   sync_tensorboard: True
   log_dir: logs
   mode: online
@@ -29,8 +29,8 @@ training:
   checkpoint_lr: 0
   train_ratio: 0.8
   valid_ratio: 0.2
-  train_coeff: 1
-  valid_coeff: 1
+  train_coeff: 0.3
+  valid_coeff: 0.3
   test_coeff: 1
   callbacks:
     - type: ModelCheckpoint

@@ -1,3 +1,4 @@
+
 # This is a PyTorch reimplementation of Eric's eglinton_train.py logic
 # using ResNet-34 as backbone, preserving all training, augmentation, logging, 
 # checkpointing, and dataset traversal logic from the original TensorFlow+Hydra pipeline
@@ -21,6 +22,8 @@ from utils import load_config, build_callbacks, log_metrics
 def train_epoch(model, dataloader, optimizer, criterion, device):
     model.train()
     total_loss = 0.0
+    total_loss_steer = 0.0
+    total_loss_speed = 0.0
     for images, speed_labels, steer_labels in dataloader:
         images = images.to(device)
         speed_labels = speed_labels.to(device)
@@ -36,12 +39,16 @@ def train_epoch(model, dataloader, optimizer, criterion, device):
         optimizer.step()
 
         total_loss += loss.item()
-    return total_loss / len(dataloader)
+        total_loss_steer += loss_steer.item()
+        total_loss_speed += loss_speed.item()
+    return total_loss / len(dataloader), total_loss_steer / len(dataloader), total_loss_speed / len(dataloader)
 
 
 def validate_epoch(model, dataloader, criterion, device):
     model.eval()
     total_loss = 0.0
+    total_loss_steer = 0.0
+    total_loss_speed = 0.0
     with torch.no_grad():
         for images, speed_labels, steer_labels in dataloader:
             images = images.to(device)
@@ -55,12 +62,12 @@ def validate_epoch(model, dataloader, criterion, device):
             loss = loss_speed + loss_steer
 
             total_loss += loss.item()
-    return total_loss / len(dataloader)
+            total_loss_steer += loss_steer.item()
+            total_loss_speed += loss_speed.item()
+    return total_loss / len(dataloader), total_loss_steer / len(dataloader), total_loss_speed / len(dataloader)
+
 
 def custom_collate_fn(batch):
-    # batch: list of (image, speed, steering) tuples
-
-    # Filter out any samples with wrong size
     batch = [sample for sample in batch if sample[0].shape == (1, 240, 400)]
 
     if len(batch) == 0:
@@ -78,7 +85,6 @@ def custom_collate_fn(batch):
     return images, speed_labels, steer_labels
 
 
-
 def main():
     cfg = load_config("conf/config.yaml")
 
@@ -91,9 +97,10 @@ def main():
 
     model = ResNet34PilotNet(pretrained=cfg['model']['pretrained']).to(device)
     optimizer = optim.Adam(model.parameters(), lr=float(cfg['model']['compile']['optimizer']['learning_rate']))
-
-
-    criterion = nn.L1Loss()  # Using MAE as per config
+    # Load callbacks (logging, early stopping, LR scheduler, checkpointing)
+    callbacks = build_callbacks(cfg, save_dir, optimizer)
+    scheduler = callbacks['lr_scheduler']
+    criterion = nn.L1Loss()
 
     # Load datasets
     train_dataset = EGLintonDataset(cfg, subset='train')
@@ -103,12 +110,8 @@ def main():
     print(f"Validation dataset size: {len(val_dataset)} samples")
 
     batch_size = cfg['training']['batch_size']
-
-    print(f"Train batches per epoch: {len(train_dataset) // batch_size}")
-    print(f"Validation batches per epoch: {len(val_dataset) // batch_size}")
-
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=custom_collate_fn, num_workers=4, pin_memory=True)
-    val_loader = DataLoader(val_dataset, batch_size=cfg['training']['batch_size'], shuffle=False, collate_fn=custom_collate_fn, num_workers=4, pin_memory=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, collate_fn=custom_collate_fn, num_workers=4, pin_memory=True)
 
     # Initialize Weights & Biases
     wandb.init(
@@ -119,18 +122,30 @@ def main():
         mode=cfg['wandb'].get('mode', 'online')
     )
 
-    # Load callbacks (logging, early stopping, LR scheduler, checkpointing)
-    callbacks = build_callbacks(cfg, save_dir)
-
     best_val_loss = float('inf')
     patience_counter = 0
 
     for epoch in range(cfg['training']['epochs']):
-        train_loss = train_epoch(model, train_loader, optimizer, criterion, device)
-        val_loss = validate_epoch(model, val_loader, criterion, device)
+        train_loss, train_loss_steering, train_loss_speed = train_epoch(model, train_loader, optimizer, criterion, device)
+        val_loss, val_loss_steering, val_loss_speed = validate_epoch(model, val_loader, criterion, device)
 
-        log_metrics(epoch, train_loss, val_loss, save_dir)
-        wandb.log({"epoch": epoch, "train_loss": train_loss, "val_loss": val_loss})
+        log_metrics(epoch, train_loss, val_loss, save_dir,
+                    train_loss_steering, train_loss_speed,
+                    val_loss_steering, val_loss_speed,
+                    optimizer.param_groups[0]['lr'])
+
+        wandb.log({
+            'epoch': epoch,
+            'train_loss': train_loss,
+            'train_loss_steering': train_loss_steering,
+            'train_loss_speed': train_loss_speed,
+            'val_loss': val_loss,
+            'val_loss_steering': val_loss_steering,
+            'val_loss_speed': val_loss_speed,
+            'lr': optimizer.param_groups[0]['lr']
+        }, step=epoch)
+
+        scheduler.step(val_loss)
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
@@ -144,6 +159,7 @@ def main():
             break
 
     wandb.finish()
+
 
 if __name__ == '__main__':
     main()
