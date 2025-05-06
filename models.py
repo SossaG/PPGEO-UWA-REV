@@ -3,10 +3,11 @@ import torch.nn as nn
 import torchvision.models as models
 
 class ResNet34PilotNet(nn.Module):
-    def __init__(self, pretrained=False, ckpt_path=None):
+    def __init__(self, pretrained=False, ckpt_path=None, use_rgb=False):
         super(ResNet34PilotNet, self).__init__()
         self.backbone = models.resnet34(pretrained=pretrained)
-        self.backbone.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        in_channels = 3 if use_rgb else 1
+        self.backbone.conv1 = nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
         self.backbone.fc = nn.Identity()
 
         self.regressor = nn.Sequential(
