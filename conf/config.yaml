@@ -6,9 +6,9 @@ wandb:
   mode: online
 
 model:
-  use_ppgeo_pretrained_encoder: true
+  use_ppgeo_pretrained_encoder: True
   name: ResNet34PilotNet
-  pretrained: True
+  pretrained: False
   trainable: True
   training: True
   compile:
