@@ -71,7 +71,11 @@ def validate_epoch(model, dataloader, criterion, device):
 
 
 def custom_collate_fn(batch):
-    batch = [sample for sample in batch if sample[0].shape == (1, 240, 400)]
+
+    expected_channels = 3 if cfg['model'].get('use_ppgeo_pretrained_encoder', False) else 1
+    batch = [sample for sample in batch if sample[0].shape == (expected_channels, 240, 400)]
+
+
 
     if len(batch) == 0:
         # No valid samples, return dummy tensors to avoid crashing
@@ -98,7 +102,34 @@ def main():
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    model = ResNet34PilotNet(pretrained=cfg['model']['pretrained']).to(device)
+    
+    # === Conditional model loading ===
+    use_ppgeo = cfg['model'].get('use_ppgeo_pretrained_encoder', False)
+
+    if use_ppgeo:
+        print("🟢 Using PPGeo pretrained ResNet-34 encoder")
+        ppgeo_ckpt = torch.load('resnet34.ckpt', map_location='cpu')
+        state_dict = ppgeo_ckpt['state_dict']
+        state_dict = {k: v for k, v in state_dict.items() if not k.startswith('fc.')}
+        use_rgb = True
+        model = ResNet34PilotNet(use_rgb=use_rgb).to(device)
+        model.backbone.load_state_dict(state_dict, strict=True)
+        
+        # === Quick test to verify encoder is functional ===
+        model.eval()
+        with torch.no_grad():
+            dummy_input = torch.randn(1, 3, 240, 400).to(device)  # Dummy RGB input
+            try:
+                pred_speed, pred_steer = model(dummy_input)
+                print("✅ Forward pass successful.")
+                print("   ➤ Speed output shape:", pred_speed.shape)
+                print("   ➤ Steer output shape:", pred_steer.shape)
+            except Exception as e:
+                print("❌ Error during forward pass:", e)
+    else:
+        print("🟡 Training from scratch/Imagenet(no PPGeo)")
+        model = ResNet34PilotNet(pretrained=cfg['model']['pretrained']).to(device)
+
     optimizer = optim.Adam(model.parameters(), lr=float(cfg['model']['compile']['optimizer']['learning_rate']))
     # Load callbacks (logging, early stopping, LR scheduler, checkpointing)
     callbacks = build_callbacks(cfg, save_dir, optimizer)
