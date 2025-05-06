@@ -19,7 +19,7 @@ from models import ResNet34PilotNet
 from utils import load_config, build_callbacks, log_metrics
 
 
-def train_epoch(model, dataloader, optimizer, criterion, device):
+def train_epoch(model, dataloader, optimizer, criterion, device, cfg):
     model.train()
     total_loss = 0.0
     total_loss_steer = 0.0
@@ -45,7 +45,7 @@ def train_epoch(model, dataloader, optimizer, criterion, device):
     return total_loss / len(dataloader), total_loss_steer / len(dataloader), total_loss_speed / len(dataloader)
 
 
-def validate_epoch(model, dataloader, criterion, device):
+def validate_epoch(model, dataloader, criterion, device, cfg):
     model.eval()
     total_loss = 0.0
     total_loss_steer = 0.0
@@ -70,7 +70,7 @@ def validate_epoch(model, dataloader, criterion, device):
     return total_loss / len(dataloader), total_loss_steer / len(dataloader), total_loss_speed / len(dataloader)
 
 
-def custom_collate_fn(batch):
+def custom_collate_fn(batch,cfg):
 
     expected_channels = 3 if cfg['model'].get('use_ppgeo_pretrained_encoder', False) else 1
     batch = [sample for sample in batch if sample[0].shape == (expected_channels, 240, 400)]
@@ -160,8 +160,8 @@ def main():
     patience_counter = 0
 
     for epoch in range(cfg['training']['epochs']):
-        train_loss, train_loss_steering, train_loss_speed = train_epoch(model, train_loader, optimizer, criterion, device)
-        val_loss, val_loss_steering, val_loss_speed = validate_epoch(model, val_loader, criterion, device)
+        train_loss, train_loss_steering, train_loss_speed = train_epoch(model, train_loader, optimizer, criterion, device,cfg)
+        val_loss, val_loss_steering, val_loss_speed = validate_epoch(model, val_loader, criterion, device,cfg)
 
         log_metrics(epoch, train_loss, val_loss, save_dir,
                     train_loss_steering, train_loss_speed,
