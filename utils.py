@@ -34,8 +34,8 @@ def log_metrics(epoch, train_loss, val_loss, save_dir,
                 lr):
     log_str = (
         f"Epoch {epoch}:\n"
-        f"  Train Loss: {train_loss:.4f} (Steering: {train_loss_steering:.4f}, Throttle: {train_loss_speed:.4f})\n"
-        f"  Val   Loss: {val_loss:.4f} (Steering: {val_loss_steering:.4f}, Throttle: {val_loss_speed:.4f})\n"
+        f"  Train Loss: {train_loss:.4f} (Steering: {train_loss_steering:.4f}, speed: {train_loss_speed:.4f})\n"
+        f"  Val   Loss: {val_loss:.4f} (Steering: {val_loss_steering:.4f}, speed: {val_loss_speed:.4f})\n"
         f"  Learning Rate: {lr:.8f}\n"
     )
     print(log_str)
