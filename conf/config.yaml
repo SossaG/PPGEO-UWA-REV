@@ -1,6 +1,6 @@
 wandb:
   project: eglinton_bus
-  name: ResNet34PilotNet_run2  # fixed to avoid ${model.name} error
+  name: PPGEO_pretrained_run1  # fixed to avoid ${model.name} error
   sync_tensorboard: True
   log_dir: logs
   mode: online
