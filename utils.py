@@ -13,7 +13,8 @@ def load_config(path):
 
 
 def build_callbacks(cfg, save_dir, optimizer):
-    scheduler_cfg = cfg['callbacks'][0]  # assumes ReduceLROnPlateau is first
+    scheduler_cfg = next(cb for cb in cfg['training']['callbacks'] if cb['type'] == 'ReduceLROnPlateau')
+
 
     scheduler = ReduceLROnPlateau(
         optimizer,
