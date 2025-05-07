@@ -114,6 +114,19 @@ def main():
         use_rgb = True
         model = ResNet34PilotNet(use_rgb=use_rgb).to(device)
         model.backbone.load_state_dict(state_dict, strict=True)
+
+                # === PPGeo Diagnostic Check ===
+        print("🔍 Checking PPGeo encoder state:")
+        print("→ conv1.weight shape:", model.backbone.conv1.weight.shape)
+        print("→ conv1.weight mean:", model.backbone.conv1.weight.mean().item())
+
+        # Check first few loaded keys
+        print("→ First few keys in loaded state_dict:")
+        print(list(state_dict.keys())[:5])
+
+        # Confirm a known weight slice (sanity check)
+        conv1_sample = model.backbone.conv1.weight[0, 0, 0, :5]
+        print("→ conv1[0,0,0,:5]:", conv1_sample.tolist())
         
         # === Quick test to verify encoder is functional ===
         model.eval()
@@ -129,6 +142,8 @@ def main():
     else:
         print("🟡 Training from scratch/Imagenet(no PPGeo)")
         model = ResNet34PilotNet(pretrained=cfg['model']['pretrained']).to(device)
+        print("ImageNet conv1 mean:", model.backbone.conv1.weight.mean().item())
+
 
     optimizer = optim.Adam(model.parameters(), lr=float(cfg['model']['compile']['optimizer']['learning_rate']))
     # Load callbacks (logging, early stopping, LR scheduler, checkpointing)
