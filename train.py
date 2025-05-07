@@ -69,28 +69,28 @@ def validate_epoch(model, dataloader, criterion, device, cfg):
             total_loss_speed += loss_speed.item()
     return total_loss / len(dataloader), total_loss_steer / len(dataloader), total_loss_speed / len(dataloader)
 
+def make_collate_fn(cfg):
+    def custom_collate_fn(batch):
 
-def custom_collate_fn(batch,cfg):
-
-    expected_channels = 3 if cfg['model'].get('use_ppgeo_pretrained_encoder', False) else 1
-    batch = [sample for sample in batch if sample[0].shape == (expected_channels, 240, 400)]
+        expected_channels = 3 if cfg['model'].get('use_ppgeo_pretrained_encoder', False) else 1
+        batch = [sample for sample in batch if sample[0].shape == (expected_channels, 240, 400)]
 
 
 
-    if len(batch) == 0:
-        # No valid samples, return dummy tensors to avoid crashing
-        dummy_img = torch.zeros((1, 240, 400), dtype=torch.float32)
-        dummy_speed = torch.zeros((1,), dtype=torch.float32)
-        dummy_steer = torch.zeros((1,), dtype=torch.float32)
-        return dummy_img.unsqueeze(0), dummy_speed.unsqueeze(0), dummy_steer.unsqueeze(0)
+        if len(batch) == 0:
+            # No valid samples, return dummy tensors to avoid crashing
+            dummy_img = torch.zeros((1, 240, 400), dtype=torch.float32)
+            dummy_speed = torch.zeros((1,), dtype=torch.float32)
+            dummy_steer = torch.zeros((1,), dtype=torch.float32)
+            return dummy_img.unsqueeze(0), dummy_speed.unsqueeze(0), dummy_steer.unsqueeze(0)
 
-    images, speed_labels, steer_labels = zip(*batch)
-    images = torch.stack(images, 0)
-    speed_labels = torch.stack(speed_labels, 0)
-    steer_labels = torch.stack(steer_labels, 0)
+        images, speed_labels, steer_labels = zip(*batch)
+        images = torch.stack(images, 0)
+        speed_labels = torch.stack(speed_labels, 0)
+        steer_labels = torch.stack(steer_labels, 0)
 
-    return images, speed_labels, steer_labels
-
+        return images, speed_labels, steer_labels
+    return custom_collate_fn
 
 def main():
     cfg = load_config("conf/config.yaml")
@@ -144,8 +144,10 @@ def main():
     print(f"Validation dataset size: {len(val_dataset)} samples")
 
     batch_size = cfg['training']['batch_size']
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=custom_collate_fn, num_workers=4, pin_memory=True)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, collate_fn=custom_collate_fn, num_workers=4, pin_memory=True)
+    collate_fn = make_collate_fn(cfg)
+
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn, num_workers=4, pin_memory=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn, num_workers=4, pin_memory=True)
 
     # Initialize Weights & Biases
     wandb.init(
