@@ -1,12 +1,12 @@
 wandb:
   project: eglinton_bus
-  name: PPGEO_pretrained_run1  # fixed to avoid ${model.name} error
+  name: PPGEO_pretrained_Frozen_run1  # fixed to avoid ${model.name} error
   sync_tensorboard: True
   log_dir: logs
   mode: online
 
 model:
-  use_ppgeo_pretrained_encoder: False
+  use_ppgeo_pretrained_encoder: True
   freeze_encoder: True
   name: ResNet34PilotNet
   pretrained: False
