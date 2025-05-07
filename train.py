@@ -113,6 +113,10 @@ def main():
         state_dict = {k: v for k, v in state_dict.items() if not k.startswith('fc.')}
         use_rgb = True
         model = ResNet34PilotNet(use_rgb=use_rgb).to(device)
+        if cfg['model'].get('freeze_encoder', False):
+            print('🔒 Freezing encoder weights')
+            for param in model.backbone.parameters():
+                param.requires_grad = False
         model.backbone.load_state_dict(state_dict, strict=True)
 
                 # === PPGeo Diagnostic Check ===

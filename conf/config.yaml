@@ -7,6 +7,7 @@ wandb:
 
 model:
   use_ppgeo_pretrained_encoder: False
+  freeze_encoder: True
   name: ResNet34PilotNet
   pretrained: False
   trainable: True
