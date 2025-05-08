@@ -72,7 +72,7 @@ def validate_epoch(model, dataloader, criterion, device, cfg):
 def make_collate_fn(cfg):
     def custom_collate_fn(batch):
 
-        expected_channels = 3 if cfg['model'].get('use_ppgeo_pretrained_encoder', False) else 1
+        expected_channels = 3 if cfg['model'].get('rgb_input', False) else 1
         batch = [sample for sample in batch if sample[0].shape == (expected_channels, 240, 400)]
 
 
@@ -112,7 +112,7 @@ def main():
         state_dict = ppgeo_ckpt['state_dict']
         state_dict = {k: v for k, v in state_dict.items() if not k.startswith('fc.')}
         use_rgb = True
-        model = ResNet34PilotNet(use_rgb=use_rgb).to(device)
+        model = ResNet34PilotNet(use_rgb= cfg['model'].get('rgb_input', False)).to(device)
         if cfg['model'].get('freeze_encoder', False):
             print('🔒 Freezing encoder weights')
             for param in model.backbone.parameters():
@@ -135,7 +135,7 @@ def main():
         # === Quick test to verify encoder is functional ===
         model.eval()
         with torch.no_grad():
-            dummy_input = torch.randn(1, 3, 240, 400).to(device)  # Dummy RGB input
+            dummy_input = torch.randn(1, 3 if cfg['model'].get('rgb_input', False) else 1, 240, 400).to(device)  # Dummy RGB or grayscale input
             try:
                 pred_speed, pred_steer = model(dummy_input)
                 print("✅ Forward pass successful.")
