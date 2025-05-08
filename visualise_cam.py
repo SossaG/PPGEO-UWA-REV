@@ -8,9 +8,9 @@ from models import ResNet34PilotNet
 import yaml
 
 # === CONFIG ===
-ckpt_path = "saved_models_logs/ResNet34PilotNet_2025-05-07-14.39.09/ResNet34PilotNet.pt"  # path on sim pc
-img_path = "eglinton images/elington image 1.png"  # grayscale or RGB input from Eric
-output_path = "attention map images/attention map  ppgeo frozen image 1.png"
+ckpt_path = "saved_models_logs/Imagenet pretrained/ResNet34PilotNet.pt"  # path on sim pc
+img_path = "eglinton images/eglinton image 2.jpg"  # grayscale or RGB input from Eric
+output_path = "attention map images/attention map imagenet image 2.png"
 
 # === Load config ===
 with open("conf/config.yaml", 'r') as f:
@@ -62,6 +62,10 @@ else:
 
 input_tensor = transform(image).unsqueeze(0).to(device)
 grayscale_cam = cam(input_tensor=input_tensor)[0]
+print("🧠 CAM values — min:", grayscale_cam.min(), "max:", grayscale_cam.max())
+print("📐 CAM shape:", grayscale_cam.shape, "| type:", type(grayscale_cam))
+
+
 if use_rgb:
     base_image = image  # shape: [240, 400, 3]
 else:

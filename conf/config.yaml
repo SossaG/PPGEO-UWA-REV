@@ -1,16 +1,16 @@
 wandb:
   project: eglinton_bus
-  name: PPGEO_unfrozen_run1  # fixed to avoid ${model.name} error
+  name: Imgagenet pretrained run 0.3  # fixed to avoid ${model.name} error
   sync_tensorboard: True
   log_dir: logs
   mode: online
 
 model:
-  use_ppgeo_pretrained_encoder: True
+  use_ppgeo_pretrained_encoder: False
   freeze_encoder: False
-  rgb_input: True
+  rgb_input: False
   name: ResNet34PilotNet
-  pretrained: False
+  pretrained: True
   trainable: True
   training: True
   compile:
