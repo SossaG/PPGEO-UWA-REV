@@ -8,8 +8,8 @@ from models import ResNet34PilotNet
 
 # === CONFIG ===
 ckpt_path = "saved_models_logs/ResNet34PilotNet_2025-05-05-19.55.23/ResNet34PilotNet.pt"  # path on sim pc as this isnt stored in github
-img_path = "elington image 1.png"  # ← Path to your grayscale cropped image from Eric
-output_path = "ppgeo_attention_comparison.jpg"
+img_path = "eglinton images/elington image 1.png"  # ← Path to your grayscale cropped image from Eric
+output_path = "attention map images/attention map image 1.png"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
