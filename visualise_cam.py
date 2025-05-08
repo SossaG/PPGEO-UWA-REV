@@ -6,39 +6,43 @@ from pytorch_grad_cam import EigenCAM
 from pytorch_grad_cam.utils.image import show_cam_on_image
 from models import ResNet34PilotNet
 
-# === Load your trained model ===
-ckpt_path = "saved_models_logs/ResNet34PilotNet_2025-05-07-14.38.08/ResNet34PilotNet.pt"  # path on sim pc as this isnt stored in github
+# === CONFIG ===
+ckpt_path = "saved_models_logs/ResNet34PilotNet_2025-05-05-19.55.23/ResNet34PilotNet.pt"  # path on sim pc as this isnt stored in github
+img_path = "elington image 1.png"  # ← Path to your grayscale cropped image from Eric
+output_path = "ppgeo_attention_comparison.jpg"
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# === Instantiate model with PPGeo encoder ===
+# === Load Model ===
 model = ResNet34PilotNet(use_rgb=True).to(device)
-model.load_state_dict(torch.load(ckpt_path, map_location=device))
+state_dict = torch.load(ckpt_path, map_location=device)
+model.load_state_dict(state_dict)
 model.eval()
 
-# === Choose the final ResNet conv layer ===
+# === Grad-CAM Setup ===
 target_layer = model.backbone.layer4[-1]
-
-# === Prepare the CAM object ===
 cam = EigenCAM(model=model, target_layers=[target_layer], use_cuda=torch.cuda.is_available())
 
-# === Load and preprocess an EGLinton sample image ===
-img_path = "frame.jpg"  # 🔁 Replace with a sample .jpg or extract from a .npy if needed
-img = cv2.imread(img_path)[:, :, ::-1]  # BGR to RGB
-img = cv2.resize(img, (400, 240))       # Match your input shape
-rgb_img = np.float32(img) / 255
+# === Load and Process Image ===
+gray = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+gray = cv2.resize(gray, (400, 240))
+rgb_img = np.stack([gray] * 3, axis=-1).astype(np.float32) / 255.0
 
-# === Apply standard PPGeo preprocessing ===
 transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406],
                          std=[0.229, 0.224, 0.225])
 ])
-input_tensor = transform(img).unsqueeze(0).to(device)
+input_tensor = transform(rgb_img).unsqueeze(0).to(device)
 
-# === Generate the attention map ===
+# === Generate CAM Overlay ===
 grayscale_cam = cam(input_tensor=input_tensor)[0]
-cam_output = show_cam_on_image(rgb_img, grayscale_cam, use_rgb=True)
+cam_image = show_cam_on_image(rgb_img, grayscale_cam, use_rgb=True)
 
-# === Save or display the CAM result ===
-cv2.imwrite("ppgeo_cam_output.jpg", cam_output)
-print("✅ CAM visualisation saved as ppgeo_cam_output.jpg")
+# === Stack Original and CAM for Side-by-Side Comparison ===
+original_bgr = cv2.cvtColor((rgb_img * 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
+side_by_side = np.concatenate((original_bgr, cam_image), axis=1)
+
+cv2.imwrite(output_path, side_by_side)
+print(f"✅ Saved CAM visualisation: {output_path}")
+
