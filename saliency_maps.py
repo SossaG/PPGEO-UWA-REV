@@ -2,18 +2,14 @@ import torch
 import cv2
 import numpy as np
 from torchvision import transforms
-from pytorch_grad_cam import EigenCAM, GradCAM, GradCAMPlusPlus, ScoreCAM, LayerCAM
-from pytorch_grad_cam.utils.image import show_cam_on_image
 from models import ResNet34PilotNet
 import yaml
+import os
 
 # === CONFIG ===
-# === CONFIG ===
-ckpt_path = "saved_models_logs/PPGEO_Frozen/ResNet34PilotNet.pt"
+ckpt_path = "saved_models_logs/Early Stop Unfrozen ppgeo/ResNet34PilotNet.pt"
 img_path = "eglinton images/eglinton image 3 split.jpg"
-output_path = "attention map images/LayerCAM steering ppgeo frozen early stop image 3 split.png"
-
-cam_method = "LayerCAM"  # Options: "EigenCAM", "GradCAM", "GradCAMPlusPlus", "ScoreCAM", "LayerCAM"
+output_path = "saliency map images/unfrozen ppgeo early stop steering image 3 split.png"
 target_output = "steering"  # Options: "steering" or "speed"
 
 # === Load config ===
@@ -29,7 +25,7 @@ state_dict = torch.load(ckpt_path, map_location=device)
 base_model.load_state_dict(state_dict)
 base_model.eval()
 
-# === Wrap model to return only selected output ===
+# === Wrap model to return selected output ===
 class OutputSelector(torch.nn.Module):
     def __init__(self, model, output_type):
         super().__init__()
@@ -40,21 +36,12 @@ class OutputSelector(torch.nn.Module):
         speed, steer = self.model(x)
         return steer if self.output_type == "steering" else speed
 
-model = OutputSelector(base_model, output_type=target_output)
-
-# === Select CAM method ===
-cam_class = {
-    "EigenCAM": EigenCAM,
-    "GradCAM": GradCAM,
-    "GradCAMPlusPlus": GradCAMPlusPlus,
-    "ScoreCAM": ScoreCAM,
-    "LayerCAM": LayerCAM
-}[cam_method]
-
-target_layer = base_model.backbone.layer4[-1]
-cam = cam_class(model=model, target_layers=[target_layer])
+model = OutputSelector(base_model, target_output)
 
 # === Load and preprocess image ===
+if not os.path.exists(img_path):
+    raise FileNotFoundError(f"❌ Image not found at: {img_path}")
+
 if use_rgb:
     img = cv2.imread(img_path, cv2.IMREAD_COLOR)[:, :, ::-1]  # BGR → RGB
     img = cv2.resize(img, (400, 240))
@@ -74,17 +61,31 @@ else:
     ])
 
 input_tensor = transform(image).unsqueeze(0).to(device)
-grayscale_cam = cam(input_tensor=input_tensor)[0]
-print("🧠 CAM values — min:", grayscale_cam.min(), "max:", grayscale_cam.max())
+input_tensor.requires_grad_()
 
-# === Show CAM ===
+# === Compute saliency map ===
+model.zero_grad()
+output = model(input_tensor)
+output.backward(torch.ones_like(output))
+saliency = input_tensor.grad.data.abs().squeeze().cpu().numpy()
+
 if use_rgb:
-    base_image = image
+    print("Saliency raw shape (before mean):", saliency.shape)
+    saliency = np.mean(saliency, axis=0)  # average across channels for smoother result
 else:
-    base_image = np.repeat(image, 3, axis=-1)
+    saliency = saliency[0]  # single channel
 
-cam_image = show_cam_on_image(base_image, grayscale_cam, use_rgb=True)
+# === Normalize saliency for display ===
+saliency = (saliency - saliency.min()) / (saliency.max() - saliency.min() + 1e-8)
+saliency_colored = cv2.applyColorMap(np.uint8(255 * saliency), cv2.COLORMAP_JET)
+saliency_colored = cv2.cvtColor(saliency_colored, cv2.COLOR_BGR2RGB)
+
+# === Resize for alignment ===
 original_bgr = cv2.cvtColor((image.squeeze(-1) * 255).astype(np.uint8), cv2.COLOR_GRAY2BGR) if not use_rgb else (image * 255).astype(np.uint8)
-side_by_side = np.concatenate((original_bgr, cam_image), axis=1)
+saliency_colored = cv2.resize(saliency_colored, (original_bgr.shape[1], original_bgr.shape[0]))
+
+# === Save output ===
+os.makedirs(os.path.dirname(output_path), exist_ok=True)
+side_by_side = np.concatenate((original_bgr, saliency_colored), axis=1)
 cv2.imwrite(output_path, side_by_side)
-print(f"✅ Saved CAM visualisation to: {output_path}")
+print(f"✅ Saved saliency map to: {output_path}")

@@ -10,7 +10,7 @@ model:
   freeze_encoder: False
   rgb_input: True
   name: ResNet34PilotNet
-  pretrained: False
+  pretrained: True
   trainable: True
   training: True
   compile:
