@@ -8,9 +8,9 @@ from models import ResNet34PilotNet
 import yaml
 
 # === CONFIG ===
-ckpt_path = "saved_models_logs/ResNet34PilotNet_2025-05-05-19.55.23/ResNet34PilotNet.pt"  # path on sim pc
+ckpt_path = "saved_models_logs/ResNet34PilotNet_2025-05-07-20.32.30/ResNet34PilotNet.pt"  # path on sim pc
 img_path = "eglinton images/elington image 1.png"  # grayscale or RGB input from Eric
-output_path = "attention map images/attention map image 1.png"
+output_path = "attention map images/attention map  ppgeo unfrozen image 1.png"
 
 # === Load config ===
 with open("conf/config.yaml", 'r') as f:
