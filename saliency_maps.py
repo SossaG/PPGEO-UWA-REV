@@ -7,9 +7,10 @@ import yaml
 import os
 
 # === CONFIG ===
-ckpt_path = "saved_models_logs/Early Stop Unfrozen ppgeo/ResNet34PilotNet.pt"
+# For raw PPGeo encoder saliency map:
+ckpt_path = "resnet34.ckpt"  # raw encoder checkpoint
 img_path = "eglinton images/eglinton image 3 split.jpg"
-output_path = "saliency map images/unfrozen ppgeo early stop steering image 3 split.png"
+output_path = "saliency map images/ppgeo raw encoder saliency image 3 split.png"
 target_output = "steering"  # Options: "steering" or "speed"
 
 # === Load config ===
@@ -20,10 +21,20 @@ use_rgb = cfg['model'].get('rgb_input', False)
 
 # === Setup ===
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-base_model = ResNet34PilotNet(use_rgb=use_rgb).to(device)
-state_dict = torch.load(ckpt_path, map_location=device)
-base_model.load_state_dict(state_dict)
+
+# === OPptional: Load only PPGeo encoder weights into model === comment this section out for non raw encoder
+base_model = ResNet34PilotNet(use_rgb=True).to(device)
+full_ckpt = torch.load(ckpt_path, map_location=device)
+ppgeo_ckpt = full_ckpt["state_dict"] if "state_dict" in full_ckpt else full_ckpt
+encoder_weights = {k: v for k, v in ppgeo_ckpt.items() if not k.startswith("fc.")}
+base_model.backbone.load_state_dict(encoder_weights, strict=True)
 base_model.eval()
+
+# === Optional: comment out below when visualising raw encoder only ===
+# base_model = ResNet34PilotNet(use_rgb=use_rgb).to(device)
+# state_dict = torch.load(ckpt_path, map_location=device)
+# base_model.load_state_dict(state_dict)
+# base_model.eval()
 
 # === Wrap model to return selected output ===
 class OutputSelector(torch.nn.Module):
