@@ -15,17 +15,17 @@ def load_config(path):
 def build_callbacks(cfg, save_dir, optimizer):
     scheduler_cfg = next(cb for cb in cfg['training']['callbacks'] if cb['type'] == 'ReduceLROnPlateau')
 
-
     scheduler = ReduceLROnPlateau(
         optimizer,
-        mode='min',
-        factor=scheduler_cfg.get('factor', 0.5),
-        patience=scheduler_cfg.get('patience', 1),
-        min_lr=scheduler_cfg.get('min_lr', 1e-7),
-        verbose=scheduler_cfg.get('verbose', 1)
+        mode=scheduler_cfg.get('mode', 'min'),
+        factor=float(scheduler_cfg.get('factor', 0.5)),
+        patience=int(scheduler_cfg.get('patience', 1)),
+        min_lr=float(scheduler_cfg.get('min_lr', 1e-7)), 
+        verbose=int(scheduler_cfg.get('verbose', 1))
     )
 
     return {'lr_scheduler': scheduler}
+
 
 
 def log_metrics(epoch, train_loss, val_loss, save_dir,
