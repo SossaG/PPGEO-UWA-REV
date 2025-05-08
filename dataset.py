@@ -95,7 +95,7 @@ class EGLintonDataset(Dataset):
         image = ((image / 127.5) - 1.0).astype(np.float32)
 
         # Convert grayscale to RGB only if specified by config
-        if self.cfg['model'].get('rbg_input', False):
+        if self.cfg['model'].get('rgb_input', False):
             if image.ndim == 2:
                 image = np.repeat(np.expand_dims(image, axis=0), 3, axis=0)
         else:
