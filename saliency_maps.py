@@ -76,13 +76,15 @@ speed_output, _ = base_model(input_tensor)
 speed_output.backward(torch.ones_like(speed_output))
 speed_saliency = input_tensor.grad.data.abs().squeeze().cpu().numpy()
 
-# === Process saliency maps ===
+# === Process saliency maps (now with eric colour style) ===
 def process_saliency(raw):
     if raw.ndim == 3:
         raw = np.mean(raw, axis=0)
     raw = (raw - raw.min()) / (raw.max() - raw.min() + 1e-8)
     saliency_colored = cv2.applyColorMap(np.uint8(255 * raw), cv2.COLORMAP_JET)
-    return cv2.cvtColor(saliency_colored, cv2.COLOR_BGR2RGB)
+    blue_base = np.full_like(saliency_colored, (255, 0, 0))  # BGR blue
+    return cv2.addWeighted(blue_base, 0.5, saliency_colored, 0.5, 0)
+
 
 saliency_steering = process_saliency(steering_saliency)
 saliency_speed = process_saliency(speed_saliency)
