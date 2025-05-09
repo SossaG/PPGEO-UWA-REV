@@ -9,9 +9,8 @@ import os
 # === CONFIG ===
 # For raw PPGeo encoder saliency map:
 ckpt_path = "saved_models_logs/Imagenet pretrained/ResNet34PilotNet.pt"  # raw encoder checkpoint
-img_path = "eglinton images/eglinton image 3 split.jpg"
-output_path = "saliency map images/ new imagenet steering saliency image 3 split.png"
-target_output = "steering"  # Options: "steering" or "speed"
+img_path = "eglinton images/eglinton image 2 pull in.jpg"
+output_path = "saliency map images/ both imagenet saliency image 2 pull in.png"
 
 # === Load config ===
 with open("conf/config.yaml", 'r') as f:
@@ -22,39 +21,28 @@ use_rgb = cfg['model'].get('rgb_input', False)
 # === Setup ===
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-"""# === Load only PPGeo encoder weights into model ===
+# === Load only PPGeo encoder weights into model ===
+"""
 base_model = ResNet34PilotNet(use_rgb=True).to(device)
 full_ckpt = torch.load(ckpt_path, map_location=device)
 ppgeo_ckpt = full_ckpt["state_dict"] if "state_dict" in full_ckpt else full_ckpt
 encoder_weights = {k: v for k, v in ppgeo_ckpt.items() if not k.startswith("fc.")}
 base_model.backbone.load_state_dict(encoder_weights, strict=True)
-base_model.eval() """
+base_model.eval()
+"""
 
-# === Optional: comment out below when visualising raw encoder only ===
+# === Load full model with config-based RGB setting ===
 base_model = ResNet34PilotNet(use_rgb=use_rgb).to(device)
 state_dict = torch.load(ckpt_path, map_location=device)
 base_model.load_state_dict(state_dict)
 base_model.eval()
-
-# === Wrap model to return selected output ===
-class OutputSelector(torch.nn.Module):
-    def __init__(self, model, output_type):
-        super().__init__()
-        self.model = model
-        self.output_type = output_type
-
-    def forward(self, x):
-        speed, steer = self.model(x)
-        return steer if self.output_type == "steering" else speed
-
-model = OutputSelector(base_model, target_output)
 
 # === Load and preprocess image ===
 if not os.path.exists(img_path):
     raise FileNotFoundError(f"❌ Image not found at: {img_path}")
 
 if use_rgb:
-    img = cv2.imread(img_path, cv2.IMREAD_COLOR)[:, :, ::-1]  # BGR → RGB
+    img = cv2.imread(img_path, cv2.IMREAD_COLOR)[:, :, ::-1]
     img = cv2.resize(img, (400, 240))
     image = img.astype(np.float32) / 255.0
     transform = transforms.Compose([
@@ -74,30 +62,39 @@ else:
 input_tensor = transform(image).unsqueeze(0).to(device)
 input_tensor.requires_grad_()
 
-# === Compute saliency map ===
-model.zero_grad()
-output = model(input_tensor)
-output.backward(torch.ones_like(output))
-saliency = input_tensor.grad.data.abs().squeeze().cpu().numpy()
+# === Compute saliency for steering ===
+base_model.zero_grad()
+_, steering_output = base_model(input_tensor)
+steering_output.backward(torch.ones_like(steering_output), retain_graph=True)
+steering_saliency = input_tensor.grad.data.abs().squeeze().cpu().numpy()
+input_tensor.grad.zero_()
 
-# === Handle channel reduction robustly regardless of RGB flag
-print("Saliency raw shape (before reduction):", saliency.shape)
-if saliency.ndim == 3:
-    saliency = np.mean(saliency, axis=0)  # average across channels if needed
-else:
-    saliency = saliency  # already 2D
+# === Compute saliency for speed ===
+input_tensor.requires_grad_()
+base_model.zero_grad()
+speed_output, _ = base_model(input_tensor)
+speed_output.backward(torch.ones_like(speed_output))
+speed_saliency = input_tensor.grad.data.abs().squeeze().cpu().numpy()
 
-# === Normalize saliency for display ===
-saliency = (saliency - saliency.min()) / (saliency.max() - saliency.min() + 1e-8)
-saliency_colored = cv2.applyColorMap(np.uint8(255 * saliency), cv2.COLORMAP_JET)
-saliency_colored = cv2.cvtColor(saliency_colored, cv2.COLOR_BGR2RGB)
+# === Process saliency maps ===
+def process_saliency(raw):
+    if raw.ndim == 3:
+        raw = np.mean(raw, axis=0)
+    raw = (raw - raw.min()) / (raw.max() - raw.min() + 1e-8)
+    saliency_colored = cv2.applyColorMap(np.uint8(255 * raw), cv2.COLORMAP_JET)
+    return cv2.cvtColor(saliency_colored, cv2.COLOR_BGR2RGB)
+
+saliency_steering = process_saliency(steering_saliency)
+saliency_speed = process_saliency(speed_saliency)
 
 # === Resize for alignment ===
-original_bgr = cv2.cvtColor((image.squeeze(-1) * 255).astype(np.uint8), cv2.COLOR_GRAY2BGR) if not use_rgb else (image * 255).astype(np.uint8)
-saliency_colored = cv2.resize(saliency_colored, (original_bgr.shape[1], original_bgr.shape[0]))
+original_bgr = cv2.cvtColor((image.squeeze(-1) * 255).astype(np.uint8),
+                            cv2.COLOR_GRAY2BGR) if not use_rgb else (image * 255).astype(np.uint8)
+saliency_steering = cv2.resize(saliency_steering, (original_bgr.shape[1], original_bgr.shape[0]))
+saliency_speed = cv2.resize(saliency_speed, (original_bgr.shape[1], original_bgr.shape[0]))
 
 # === Save output ===
 os.makedirs(os.path.dirname(output_path), exist_ok=True)
-side_by_side = np.concatenate((original_bgr, saliency_colored), axis=1)
-cv2.imwrite(output_path, side_by_side)
-print(f"✅ Saved saliency map to: {output_path}")
+combined = np.concatenate((saliency_speed, original_bgr, saliency_steering), axis=1)
+cv2.imwrite(output_path, combined)
+print(f"✅ Saved combined speed/steering saliency map to: {output_path}")
