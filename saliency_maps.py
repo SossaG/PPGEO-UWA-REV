@@ -8,9 +8,9 @@ import os
 
 # === CONFIG ===
 # For raw PPGeo encoder saliency map:
-ckpt_path = "resnet34.ckpt"  # raw encoder checkpoint
+ckpt_path = "saved_models_logs/Imagenet pretrained/ResNet34PilotNet.pt"  # raw encoder checkpoint
 img_path = "eglinton images/eglinton image 3 split.jpg"
-output_path = "saliency map images/ppgeo raw encoder saliency image 3 split.png"
+output_path = "saliency map images/ new imagenet steering saliency image 3 split.png"
 target_output = "steering"  # Options: "steering" or "speed"
 
 # === Load config ===
@@ -22,19 +22,19 @@ use_rgb = cfg['model'].get('rgb_input', False)
 # === Setup ===
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# === OPptional: Load only PPGeo encoder weights into model === comment this section out for non raw encoder
+"""# === Load only PPGeo encoder weights into model ===
 base_model = ResNet34PilotNet(use_rgb=True).to(device)
 full_ckpt = torch.load(ckpt_path, map_location=device)
 ppgeo_ckpt = full_ckpt["state_dict"] if "state_dict" in full_ckpt else full_ckpt
 encoder_weights = {k: v for k, v in ppgeo_ckpt.items() if not k.startswith("fc.")}
 base_model.backbone.load_state_dict(encoder_weights, strict=True)
-base_model.eval()
+base_model.eval() """
 
 # === Optional: comment out below when visualising raw encoder only ===
-# base_model = ResNet34PilotNet(use_rgb=use_rgb).to(device)
-# state_dict = torch.load(ckpt_path, map_location=device)
-# base_model.load_state_dict(state_dict)
-# base_model.eval()
+base_model = ResNet34PilotNet(use_rgb=use_rgb).to(device)
+state_dict = torch.load(ckpt_path, map_location=device)
+base_model.load_state_dict(state_dict)
+base_model.eval()
 
 # === Wrap model to return selected output ===
 class OutputSelector(torch.nn.Module):
@@ -80,11 +80,12 @@ output = model(input_tensor)
 output.backward(torch.ones_like(output))
 saliency = input_tensor.grad.data.abs().squeeze().cpu().numpy()
 
-if use_rgb:
-    print("Saliency raw shape (before mean):", saliency.shape)
-    saliency = np.mean(saliency, axis=0)  # average across channels for smoother result
+# === Handle channel reduction robustly regardless of RGB flag
+print("Saliency raw shape (before reduction):", saliency.shape)
+if saliency.ndim == 3:
+    saliency = np.mean(saliency, axis=0)  # average across channels if needed
 else:
-    saliency = saliency[0]  # single channel
+    saliency = saliency  # already 2D
 
 # === Normalize saliency for display ===
 saliency = (saliency - saliency.min()) / (saliency.max() - saliency.min() + 1e-8)
