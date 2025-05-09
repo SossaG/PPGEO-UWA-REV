@@ -7,10 +7,9 @@ import yaml
 import os
 
 # === CONFIG ===
-# For raw PPGeo encoder saliency map:
-ckpt_path = "saved_models_logs/Imagenet pretrained/ResNet34PilotNet.pt"  # raw encoder checkpoint
-img_path = "eglinton images/eglinton image 2 pull in.jpg"
-output_path = "saliency map images/ both imagenet saliency image 2 pull in.png"
+ckpt_path = "saved_models_logs/Imagenet pretrained/ResNet34PilotNet.pt"
+img_path = "eglinton images/eglinton image 3 split.jpg"
+output_path = "saliency map images/ new imagenet saliency image 3 split.png"
 
 # === Load config ===
 with open("conf/config.yaml", 'r') as f:
@@ -18,7 +17,6 @@ with open("conf/config.yaml", 'r') as f:
 
 use_rgb = cfg['model'].get('rgb_input', False)
 
-# === Setup ===
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # === Load only PPGeo encoder weights into model ===
@@ -62,41 +60,49 @@ else:
 input_tensor = transform(image).unsqueeze(0).to(device)
 input_tensor.requires_grad_()
 
-# === Compute saliency for steering ===
-base_model.zero_grad()
-_, steering_output = base_model(input_tensor)
-steering_output.backward(torch.ones_like(steering_output), retain_graph=True)
-steering_saliency = input_tensor.grad.data.abs().squeeze().cpu().numpy()
+# === Compute both saliency maps ===
+class OutputSelector(torch.nn.Module):
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+
+    def forward(self, x):
+        return self.model(x)
+
+model = OutputSelector(base_model)
+
+# === Forward for speed saliency ===
+model.zero_grad()
+speed_output, _ = model(input_tensor)
+speed_output.backward(torch.ones_like(speed_output), retain_graph=True)
+speed_saliency = input_tensor.grad.data.abs().squeeze().cpu().numpy()
 input_tensor.grad.zero_()
 
-# === Compute saliency for speed ===
+# === Forward for steering saliency ===
 input_tensor.requires_grad_()
-base_model.zero_grad()
-speed_output, _ = base_model(input_tensor)
-speed_output.backward(torch.ones_like(speed_output))
-speed_saliency = input_tensor.grad.data.abs().squeeze().cpu().numpy()
+model.zero_grad()
+_, steering_output = model(input_tensor)
+steering_output.backward(torch.ones_like(steering_output))
+steering_saliency = input_tensor.grad.data.abs().squeeze().cpu().numpy()
 
-# === Process saliency maps (now with eric colour style) ===
-def process_saliency(raw):
-    if raw.ndim == 3:
-        raw = np.mean(raw, axis=0)
-    raw = (raw - raw.min()) / (raw.max() - raw.min() + 1e-8)
-    saliency_colored = cv2.applyColorMap(np.uint8(255 * raw), cv2.COLORMAP_JET)
-    blue_base = np.full_like(saliency_colored, (255, 0, 0))  # BGR blue
-    return cv2.addWeighted(blue_base, 0.5, saliency_colored, 0.5, 0)
+# === Combine saliency maps ===
+if speed_saliency.ndim == 3:
+    speed_saliency = np.mean(speed_saliency, axis=0)
+if steering_saliency.ndim == 3:
+    steering_saliency = np.mean(steering_saliency, axis=0)
 
+combined_saliency = (speed_saliency + steering_saliency) / 2.0
+combined_saliency = (combined_saliency - combined_saliency.min()) / (combined_saliency.max() - combined_saliency.min() + 1e-8)
+saliency_colored = cv2.applyColorMap(np.uint8(255 * combined_saliency), cv2.COLORMAP_JET)
 
-saliency_steering = process_saliency(steering_saliency)
-saliency_speed = process_saliency(speed_saliency)
-
-# === Resize for alignment ===
+# === Base visuals ===
 original_bgr = cv2.cvtColor((image.squeeze(-1) * 255).astype(np.uint8),
                             cv2.COLOR_GRAY2BGR) if not use_rgb else (image * 255).astype(np.uint8)
-saliency_steering = cv2.resize(saliency_steering, (original_bgr.shape[1], original_bgr.shape[0]))
-saliency_speed = cv2.resize(saliency_speed, (original_bgr.shape[1], original_bgr.shape[0]))
+blue_base = original_bgr.copy()  # translucent overlay on real image instead of flat blue  # lighter blue tint for clearer overlay  # blue background in BGR
+saliency_overlay = cv2.addWeighted(blue_base, 0.3, saliency_colored, 0.7, 0)  # stronger saliency blend
 
-# === Save output ===
+# === Save result side-by-side ===
 os.makedirs(os.path.dirname(output_path), exist_ok=True)
-combined = np.concatenate((saliency_speed, original_bgr, saliency_steering), axis=1)
-cv2.imwrite(output_path, combined)
-print(f"✅ Saved combined speed/steering saliency map to: {output_path}")
+side_by_side = np.concatenate((original_bgr, saliency_overlay), axis=1)
+cv2.imwrite(output_path, side_by_side)
+print(f"✅ Saved combined speed/steering saliency overlay to: {output_path}")
