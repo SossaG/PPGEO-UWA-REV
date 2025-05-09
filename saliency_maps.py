@@ -8,8 +8,8 @@ import os
 
 # === CONFIG ===
 ckpt_path = "saved_models_logs/Imagenet pretrained/ResNet34PilotNet.pt"
-img_path = "eglinton images/eglinton image 3 split.jpg"
-output_path = "saliency map images/ new imagenet saliency image 3 split.png"
+img_path = "eglinton images/eglinton image 4 diverge.jpg"
+output_path = "saliency map images/ trans imagenet saliency image4 diverge.png"
 
 # === Load config ===
 with open("conf/config.yaml", 'r') as f:
