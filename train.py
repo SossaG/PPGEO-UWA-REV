@@ -145,7 +145,7 @@ def main():
                 print("❌ Error during forward pass:", e)
     else:
         print("🟡 Training from scratch/Imagenet(no PPGeo)")
-        model = ResNet34PilotNet(pretrained=cfg['model']['pretrained']).to(device)
+        model = ResNet34PilotNet(pretrained=cfg['model']['pretrained'], use_rgb= cfg['model'].get('rgb_input', False)).to(device)
         print("ImageNet conv1 mean:", model.backbone.conv1.weight.mean().item())
 
 
