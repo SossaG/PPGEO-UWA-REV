@@ -93,7 +93,15 @@ class EGLintonDataset(Dataset):
             image = image[:, 40:440]
 
         image = ((image / 127.5) - 1.0).astype(np.float32)
-        image = np.expand_dims(image, axis=0)
+
+        # Convert grayscale to RGB only if specified by config
+        if self.cfg['model'].get('rgb_input', False):
+            if image.ndim == 2:
+                image = np.repeat(np.expand_dims(image, axis=0), 3, axis=0)
+        else:
+            if image.ndim == 2:
+                image = np.expand_dims(image, axis=0)
+        
 
         return torch.tensor(image), torch.tensor([speed], dtype=torch.float32), torch.tensor([steering], dtype=torch.float32)
 
