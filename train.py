@@ -122,7 +122,7 @@ def main():
         if not cfg['model'].get('rgb_input', True):
             # checkpoint has "conv1.weight": torch.Size([64,3,7,7])
             w3 = state_dict['conv1.weight']                # [64,3,7,7]
-            state_dict['conv1.weight'] = w3.mean(1, True)  # → [64,1,7,7]
+            state_dict['conv1.weight'] = w3.mean(1, keepdim=True)  # → [64,1,7,7] 
         # now load everything (conv1 will match or be ignored)  
         model.backbone.load_state_dict(state_dict, strict=False)
 
