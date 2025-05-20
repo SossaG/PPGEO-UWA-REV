@@ -112,10 +112,19 @@ def main():
         state_dict = ppgeo_ckpt['state_dict']
         state_dict = {k: v for k, v in state_dict.items() if not k.startswith('fc.')}
         model = ResNet34PilotNet(use_rgb= cfg['model'].get('rgb_input', False)).to(device)
+
+
         if cfg['model'].get('freeze_encoder', False):
             print('🔒 Freezing encoder weights')
             for param in model.backbone.parameters():
                 param.requires_grad = False
+
+        if cfg['model'].get('partial_freeze', False):
+        # freeze all but conv1 and layer1
+            print('Partially Freezing encoder weights')
+            for name, p in model.backbone.named_parameters():
+                if not (name.startswith('conv1') or name.startswith('layer1')):
+                    p.requires_grad = False
 
         # ——— GRAYSCALE ADAPTATION & WEIGHT LOADING ———
         # if doing true-grayscale fine-tuning, average the pretrained RGB conv1 → 1-channel
@@ -155,6 +164,12 @@ def main():
         model = ResNet34PilotNet(pretrained=cfg['model']['pretrained'], use_rgb= cfg['model'].get('rgb_input', False)).to(device)
         print("ImageNet conv1 mean (before avg):", model.backbone.conv1.weight.mean().item())
 
+        if cfg['model'].get('partial_freeze', False):
+        # freeze all but conv1 and layer1
+            for name, p in model.backbone.named_parameters():
+                if not (name.startswith('conv1') or name.startswith('layer1')):
+                    p.requires_grad = False
+
         # ——— GRAYSCALE ADAPTER for ImageNet ———
         if not cfg['model'].get('rgb_input', False):
             # model.backbone.conv1.weight is [64,3,7,7] → average to [64,1,7,7]
@@ -164,8 +179,11 @@ def main():
             print("ImageNet conv1 mean (after avg):", model.backbone.conv1.weight.mean().item())
 
 
+    optimizer = optim.Adam(
+        [p for p in model.parameters() if p.requires_grad],
+        lr=float(cfg['model']['compile']['optimizer']['learning_rate'])
+    )
 
-    optimizer = optim.Adam(model.parameters(), lr=float(cfg['model']['compile']['optimizer']['learning_rate']))
     # Load callbacks (logging, early stopping, LR scheduler, checkpointing)
     callbacks = build_callbacks(cfg, save_dir, optimizer)
     scheduler = callbacks['lr_scheduler']
