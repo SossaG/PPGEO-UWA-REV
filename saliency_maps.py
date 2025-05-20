@@ -7,9 +7,9 @@ import yaml
 import os
 
 # === CONFIG ===
-ckpt_path = "saved_models_logs/ppgeo frozen gray 0.1/ResNet34PilotNet.pt"
-img_path = "eglinton images/eglinton image 2 pull in.jpg"
-output_path = "saliency map images/ppgeo frozen gray 0.1 2 pull in.png"
+ckpt_path = "saved_models_logs/ppgeo partially frozen gray 0.1/ResNet34PilotNet.pt"
+img_path = "eglinton images/eglinton image 3 split.jpg"
+output_path = "saliency map images/ppgeo partially frozen gray 0.1 3 split.png"
 
 # === Load config ===
 with open("conf/config.yaml", 'r') as f:
