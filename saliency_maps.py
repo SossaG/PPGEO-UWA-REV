@@ -2,14 +2,14 @@ import torch
 import cv2
 import numpy as np
 from torchvision import transforms
-from models import ResNet34PilotNet
+from models_ivan import ResNet34PilotNet
 import yaml
 import os
 
 # === CONFIG ===
-ckpt_path = "saved_models_logs/ppgeo unfrozen/ResNet34PilotNet.pt"
-img_path = "eglinton images/eglinton image 2 pull in.jpg"
-output_path = "saliency map images/ppgeo unfrozen image 2 pull in.png"
+ckpt_path = "saved_models_logs/ppgeo partially frozen gray 0.1/ResNet34PilotNet.pt"
+img_path = "eglinton images/eglinton image 3 split.jpg"
+output_path = "saliency map images/ppgeo partially frozen gray 0.1 3 split.png"
 
 # === Load config ===
 with open("conf/config.yaml", 'r') as f:

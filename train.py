@@ -15,7 +15,7 @@ import logging
 import wandb
 
 from dataset import EGLintonDataset
-from models import ResNet34PilotNet
+from models_ivan import ResNet34PilotNet
 from utils import load_config, build_callbacks, log_metrics
 
 
@@ -111,13 +111,29 @@ def main():
         ppgeo_ckpt = torch.load('resnet34.ckpt', map_location='cpu')
         state_dict = ppgeo_ckpt['state_dict']
         state_dict = {k: v for k, v in state_dict.items() if not k.startswith('fc.')}
-        use_rgb = True
         model = ResNet34PilotNet(use_rgb= cfg['model'].get('rgb_input', False)).to(device)
+
+
         if cfg['model'].get('freeze_encoder', False):
             print('🔒 Freezing encoder weights')
             for param in model.backbone.parameters():
                 param.requires_grad = False
-        model.backbone.load_state_dict(state_dict, strict=True)
+
+        if cfg['model'].get('partial_freeze', False):
+        # freeze all but conv1 and layer1
+            print('Partially Freezing encoder weights')
+            for name, p in model.backbone.named_parameters():
+                if not (name.startswith('conv1') or name.startswith('layer1')):
+                    p.requires_grad = False
+
+        # ——— GRAYSCALE ADAPTATION & WEIGHT LOADING ———
+        # if doing true-grayscale fine-tuning, average the pretrained RGB conv1 → 1-channel
+        if not cfg['model'].get('rgb_input', True):
+            # checkpoint has "conv1.weight": torch.Size([64,3,7,7])
+            w3 = state_dict['conv1.weight']                # [64,3,7,7]
+            state_dict['conv1.weight'] = w3.mean(1, keepdim=True)  # → [64,1,7,7] 
+        # now load everything (conv1 will match or be ignored)  
+        model.backbone.load_state_dict(state_dict, strict=False)
 
                 # === PPGeo Diagnostic Check ===
         print("🔍 Checking PPGeo encoder state:")
@@ -146,10 +162,28 @@ def main():
     else:
         print("🟡 Training from scratch/Imagenet(no PPGeo)")
         model = ResNet34PilotNet(pretrained=cfg['model']['pretrained'], use_rgb= cfg['model'].get('rgb_input', False)).to(device)
-        print("ImageNet conv1 mean:", model.backbone.conv1.weight.mean().item())
+        print("ImageNet conv1 mean (before avg):", model.backbone.conv1.weight.mean().item())
+
+        if cfg['model'].get('partial_freeze', False):
+        # freeze all but conv1 and layer1
+            for name, p in model.backbone.named_parameters():
+                if not (name.startswith('conv1') or name.startswith('layer1')):
+                    p.requires_grad = False
+
+        # ——— GRAYSCALE ADAPTER for ImageNet ———
+        if not cfg['model'].get('rgb_input', False):
+            # model.backbone.conv1.weight is [64,3,7,7] → average to [64,1,7,7]
+            w3 = model.backbone.conv1.weight.data         # [64,3,7,7]
+            w1 = w3.mean(1, keepdim=True)                # [64,1,7,7]
+            model.backbone.conv1.weight.data.copy_(w1)
+            print("ImageNet conv1 mean (after avg):", model.backbone.conv1.weight.mean().item())
 
 
-    optimizer = optim.Adam(model.parameters(), lr=float(cfg['model']['compile']['optimizer']['learning_rate']))
+    optimizer = optim.Adam(
+        [p for p in model.parameters() if p.requires_grad],
+        lr=float(cfg['model']['compile']['optimizer']['learning_rate'])
+    )
+
     # Load callbacks (logging, early stopping, LR scheduler, checkpointing)
     callbacks = build_callbacks(cfg, save_dir, optimizer)
     scheduler = callbacks['lr_scheduler']

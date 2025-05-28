@@ -1,0 +1,15 @@
+{"time":"2025-04-30T16:04:18.206570026+08:00","level":"INFO","msg":"stream: starting","core version":"0.19.10","symlink path":"saved_models_logs/ResNet34PilotNet_2025-04-30-16.04.12/wandb/run-20250430_160418-hoppngbo/logs/debug-core.log"}
+{"time":"2025-04-30T16:04:18.690544757+08:00","level":"INFO","msg":"created new stream","id":"hoppngbo"}
+{"time":"2025-04-30T16:04:18.69156128+08:00","level":"INFO","msg":"stream: started","id":"hoppngbo"}
+{"time":"2025-04-30T16:04:18.692161645+08:00","level":"INFO","msg":"writer: Do: started","stream_id":"hoppngbo"}
+{"time":"2025-04-30T16:04:18.692134737+08:00","level":"INFO","msg":"sender: started","stream_id":"hoppngbo"}
+{"time":"2025-04-30T16:04:18.692494009+08:00","level":"INFO","msg":"handler: started","stream_id":"hoppngbo"}
+{"time":"2025-04-30T16:04:19.112179086+08:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-04-30T16:08:04.21270052+08:00","level":"INFO","msg":"stream: closing","id":"hoppngbo"}
+{"time":"2025-04-30T16:08:04.212763956+08:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-04-30T16:08:04.212919536+08:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-04-30T16:08:05.887757946+08:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-04-30T16:08:06.290679583+08:00","level":"INFO","msg":"handler: closed","stream_id":"hoppngbo"}
+{"time":"2025-04-30T16:08:06.290816467+08:00","level":"INFO","msg":"sender: closed","stream_id":"hoppngbo"}
+{"time":"2025-04-30T16:08:06.290765417+08:00","level":"INFO","msg":"writer: Close: closed","stream_id":"hoppngbo"}
+{"time":"2025-04-30T16:08:06.290992947+08:00","level":"INFO","msg":"stream: closed","id":"hoppngbo"}

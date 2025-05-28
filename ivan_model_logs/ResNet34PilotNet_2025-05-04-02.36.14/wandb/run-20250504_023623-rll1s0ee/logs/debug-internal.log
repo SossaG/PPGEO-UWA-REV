@@ -1,0 +1,60 @@
+{"time":"2025-05-04T02:36:23.069778894+08:00","level":"INFO","msg":"stream: starting","core version":"0.19.10","symlink path":"saved_models_logs/ResNet34PilotNet_2025-05-04-02.36.14/wandb/run-20250504_023623-rll1s0ee/logs/debug-core.log"}
+{"time":"2025-05-04T02:36:23.511933966+08:00","level":"INFO","msg":"created new stream","id":"rll1s0ee"}
+{"time":"2025-05-04T02:36:23.512005676+08:00","level":"INFO","msg":"stream: started","id":"rll1s0ee"}
+{"time":"2025-05-04T02:36:23.512115598+08:00","level":"INFO","msg":"writer: Do: started","stream_id":"rll1s0ee"}
+{"time":"2025-05-04T02:36:23.512183858+08:00","level":"INFO","msg":"sender: started","stream_id":"rll1s0ee"}
+{"time":"2025-05-04T02:36:23.51252916+08:00","level":"INFO","msg":"handler: started","stream_id":"rll1s0ee"}
+{"time":"2025-05-04T02:36:23.838114343+08:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-05-04T07:55:50.090017431+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/files/uwa-rev/eglinton_bus/rll1s0ee/file_stream\": unexpected EOF"}
+{"time":"2025-05-04T09:19:44.167434771+08:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/files/uwa-rev/eglinton_bus/rll1s0ee/file_stream","body":"{\"error\":\"context deadline exceeded\"}"}
+{"time":"2025-05-04T09:31:39.647115952+08:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/files/uwa-rev/eglinton_bus/rll1s0ee/file_stream","body":"{\"error\":\"dial tcp 35.226.229.132:3307: connect: connection refused\"}"}
+{"time":"2025-05-04T09:31:39.669737119+08:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/graphql","body":"{\"error\":\"dial tcp 35.226.229.132:3307: connect: connection refused\"}"}
+{"time":"2025-05-04T09:31:42.511023438+08:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/graphql","body":"{\"error\":\"dial tcp 35.226.229.132:3307: connect: connection refused\"}"}
+{"time":"2025-05-04T09:31:42.511662937+08:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/files/uwa-rev/eglinton_bus/rll1s0ee/file_stream","body":"{\"error\":\"dial tcp 35.226.229.132:3307: connect: connection refused\"}"}
+{"time":"2025-05-04T09:31:47.114420056+08:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/files/uwa-rev/eglinton_bus/rll1s0ee/file_stream","body":"{\"error\":\"dial tcp 35.226.229.132:3307: connect: connection refused\"}"}
+{"time":"2025-05-04T09:31:48.140301851+08:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/graphql","body":"{\"error\":\"dial tcp 35.226.229.132:3307: connect: connection refused\"}"}
+{"time":"2025-05-04T09:32:27.285028945+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": net/http: request canceled (Client.Timeout exceeded while awaiting headers)"}
+{"time":"2025-05-04T09:32:50.807588363+08:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/files/uwa-rev/eglinton_bus/rll1s0ee/file_stream","body":"{\"error\":\"context deadline exceeded\"}"}
+{"time":"2025-05-04T09:33:13.972287341+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)"}
+{"time":"2025-05-04T09:34:05.562164996+08:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/files/uwa-rev/eglinton_bus/rll1s0ee/file_stream","body":"{\"error\":\"context deadline exceeded\"}"}
+{"time":"2025-05-04T09:34:17.329226066+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": net/http: request canceled (Client.Timeout exceeded while awaiting headers)"}
+{"time":"2025-05-04T09:35:36.798831854+08:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/files/uwa-rev/eglinton_bus/rll1s0ee/file_stream","body":"{\"error\":\"context deadline exceeded\"}"}
+{"time":"2025-05-04T09:35:47.33648788+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": context deadline exceeded"}
+{"time":"2025-05-04T09:37:17.337471025+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": context deadline exceeded"}
+{"time":"2025-05-04T09:37:32.204232801+08:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/files/uwa-rev/eglinton_bus/rll1s0ee/file_stream","body":"{\"error\":\"context deadline exceeded\"}"}
+{"time":"2025-05-04T09:38:47.340335365+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": net/http: request canceled (Client.Timeout exceeded while awaiting headers)"}
+{"time":"2025-05-04T09:39:27.611754009+08:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/files/uwa-rev/eglinton_bus/rll1s0ee/file_stream","body":"{\"error\":\"context deadline exceeded\"}"}
+{"time":"2025-05-04T09:40:17.341555105+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)"}
+{"time":"2025-05-04T09:41:23.015681072+08:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/files/uwa-rev/eglinton_bus/rll1s0ee/file_stream","body":"{\"error\":\"context deadline exceeded\"}"}
+{"time":"2025-05-04T09:41:39.112536071+08:00","level":"WARN","msg":"sender: taking a long time","seconds":600.001916687,"work":"WorkRecord(*service_go_proto.Request_StopStatus); Control(local:true mailbox_slot:\"9qh4fw2eyzu6\" connection_id:\"127.0.0.1:51954\")"}
+{"time":"2025-05-04T09:41:47.34295239+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)"}
+{"time":"2025-05-04T09:42:50.467619383+08:00","level":"INFO","msg":"sender: succeeded after taking longer than expected","seconds":671.357605245,"work":"WorkRecord(*service_go_proto.Request_StopStatus); Control(local:true mailbox_slot:\"9qh4fw2eyzu6\" connection_id:\"127.0.0.1:51954\")"}
+{"time":"2025-05-04T10:01:25.880521276+08:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/files/uwa-rev/eglinton_bus/rll1s0ee/file_stream","body":"{\"error\":\"context deadline exceeded\"}"}
+{"time":"2025-05-04T10:43:44.257819372+08:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/files/uwa-rev/eglinton_bus/rll1s0ee/file_stream","body":"{\"error\":\"context deadline exceeded\"}"}
+{"time":"2025-05-04T11:11:24.911905102+08:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/files/uwa-rev/eglinton_bus/rll1s0ee/file_stream","body":"{\"error\":\"dial tcp 35.226.229.132:3307: connect: connection refused\"}"}
+{"time":"2025-05-04T11:11:25.014254515+08:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/graphql","body":"{\"errors\":[{\"message\":\"dial tcp 35.226.229.132:3307: connect: connection refused\",\"path\":[\"project\"]}],\"data\":{\"project\":null}}"}
+{"time":"2025-05-04T11:11:57.168074593+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)"}
+{"time":"2025-05-04T11:12:22.498231847+08:00","level":"INFO","msg":"api: retrying HTTP error","status":429,"url":"https://api.wandb.ai/files/uwa-rev/eglinton_bus/rll1s0ee/file_stream","body":"{\"error\":\"rate limit exceeded\"}"}
+{"time":"2025-05-04T11:12:31.417373444+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": net/http: request canceled (Client.Timeout exceeded while awaiting headers)"}
+{"time":"2025-05-04T11:13:09.821325854+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": context deadline exceeded"}
+{"time":"2025-05-04T11:13:22.313593725+08:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/files/uwa-rev/eglinton_bus/rll1s0ee/file_stream","body":"{\"error\":\"context deadline exceeded\"}"}
+{"time":"2025-05-04T11:13:58.408009608+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": context deadline exceeded"}
+{"time":"2025-05-04T11:14:26.828361626+08:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/files/uwa-rev/eglinton_bus/rll1s0ee/file_stream","body":"{\"error\":\"context deadline exceeded\"}"}
+{"time":"2025-05-04T11:15:02.314621748+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": context deadline exceeded"}
+{"time":"2025-05-04T11:15:42.163929394+08:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/files/uwa-rev/eglinton_bus/rll1s0ee/file_stream","body":"{\"error\":\"context deadline exceeded\"}"}
+{"time":"2025-05-04T11:16:32.315266431+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)"}
+{"time":"2025-05-04T11:17:13.829642618+08:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/files/uwa-rev/eglinton_bus/rll1s0ee/file_stream","body":"{\"error\":\"context deadline exceeded\"}"}
+{"time":"2025-05-04T11:18:02.315755809+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": net/http: request canceled (Client.Timeout exceeded while awaiting headers)"}
+{"time":"2025-05-04T11:19:09.204945601+08:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/files/uwa-rev/eglinton_bus/rll1s0ee/file_stream","body":"{\"error\":\"context deadline exceeded\"}"}
+{"time":"2025-05-04T11:19:32.31712232+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": net/http: request canceled (Client.Timeout exceeded while awaiting headers)"}
+{"time":"2025-05-04T11:41:08.012824786+08:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/files/uwa-rev/eglinton_bus/rll1s0ee/file_stream","body":"{\"error\":\"context deadline exceeded\"}"}
+{"time":"2025-05-05T00:02:18.972600338+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/files/uwa-rev/eglinton_bus/rll1s0ee/file_stream\": unexpected EOF"}
+{"time":"2025-05-05T02:12:47.30724167+08:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-05-05T02:12:47.309708483+08:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-05-05T02:12:48.270351506+08:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading output.log","runtime_seconds":0.298586437},{"desc":"uploading wandb-summary.json","runtime_seconds":0.295669771}],"total_operations":2}}
+{"time":"2025-05-05T02:12:48.790408477+08:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-05-05T02:12:49.317560683+08:00","level":"INFO","msg":"stream: closing","id":"rll1s0ee"}
+{"time":"2025-05-05T02:12:49.317585897+08:00","level":"INFO","msg":"handler: closed","stream_id":"rll1s0ee"}
+{"time":"2025-05-05T02:12:49.317600315+08:00","level":"INFO","msg":"writer: Close: closed","stream_id":"rll1s0ee"}
+{"time":"2025-05-05T02:12:49.317645973+08:00","level":"INFO","msg":"sender: closed","stream_id":"rll1s0ee"}
+{"time":"2025-05-05T02:12:49.317664419+08:00","level":"INFO","msg":"stream: closed","id":"rll1s0ee"}

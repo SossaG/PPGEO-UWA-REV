@@ -1,0 +1,36 @@
+Traceback (most recent call last):
+  File "train.py", line 217, in <module>
+    main()
+  File "train.py", line 180, in main
+    train_loss, train_loss_steering, train_loss_speed = train_epoch(model, train_loader, optimizer, criterion, device,cfg)
+  File "train.py", line 33, in train_epoch
+    pred_speed, pred_steer = model(images)
+  File "/home/sim/miniconda3/envs/ivan/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/sim/miniconda3/envs/ivan/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/media/sim/data/ivan/models.py", line 34, in forward
+    x = self.backbone(x)
+  File "/home/sim/miniconda3/envs/ivan/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/sim/miniconda3/envs/ivan/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/sim/miniconda3/envs/ivan/lib/python3.8/site-packages/torchvision/models/resnet.py", line 285, in forward
+    return self._forward_impl(x)
+  File "/home/sim/miniconda3/envs/ivan/lib/python3.8/site-packages/torchvision/models/resnet.py", line 275, in _forward_impl
+    x = self.layer3(x)
+  File "/home/sim/miniconda3/envs/ivan/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/sim/miniconda3/envs/ivan/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/sim/miniconda3/envs/ivan/lib/python3.8/site-packages/torch/nn/modules/container.py", line 219, in forward
+    input = module(input)
+  File "/home/sim/miniconda3/envs/ivan/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/sim/miniconda3/envs/ivan/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/sim/miniconda3/envs/ivan/lib/python3.8/site-packages/torchvision/models/resnet.py", line 103, in forward
+    out = self.relu(out)
+  File "/home/sim/miniconda3/envs/ivan/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1717, in __getattr__
+    if '_parameters' in self.__dict__:
+KeyboardInterrupt

@@ -1,0 +1,17 @@
+{"time":"2025-05-10T12:01:35.181284019+08:00","level":"INFO","msg":"stream: starting","core version":"0.19.10","symlink path":"saved_models_logs/ResNet34PilotNet_2025-05-10-12.01.25/wandb/run-20250510_120135-emk5sx1a/logs/debug-core.log"}
+{"time":"2025-05-10T12:01:35.658607814+08:00","level":"INFO","msg":"created new stream","id":"emk5sx1a"}
+{"time":"2025-05-10T12:01:35.658628202+08:00","level":"INFO","msg":"stream: started","id":"emk5sx1a"}
+{"time":"2025-05-10T12:01:35.658634256+08:00","level":"INFO","msg":"handler: started","stream_id":"emk5sx1a"}
+{"time":"2025-05-10T12:01:35.658640447+08:00","level":"INFO","msg":"sender: started","stream_id":"emk5sx1a"}
+{"time":"2025-05-10T12:01:35.658650643+08:00","level":"INFO","msg":"writer: Do: started","stream_id":"emk5sx1a"}
+{"time":"2025-05-10T12:01:36.034335111+08:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-05-10T16:45:32.167211988+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/files/uwa-rev/eglinton_bus/emk5sx1a/file_stream\": unexpected EOF"}
+{"time":"2025-05-10T17:18:13.316280212+08:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-05-10T17:18:13.326065282+08:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-05-10T17:18:14.27944159+08:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading output.log","runtime_seconds":0.330538341,"progress":"1.0KB/1.0KB"},{"desc":"uploading wandb-summary.json","runtime_seconds":0.329003449,"progress":"370B/370B"},{"desc":"uploading config.yaml","runtime_seconds":0.071619219,"progress":"5.1KB/5.1KB"}],"total_operations":3}}
+{"time":"2025-05-10T17:18:14.611939825+08:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-05-10T17:18:15.037514893+08:00","level":"INFO","msg":"stream: closing","id":"emk5sx1a"}
+{"time":"2025-05-10T17:18:15.037548538+08:00","level":"INFO","msg":"handler: closed","stream_id":"emk5sx1a"}
+{"time":"2025-05-10T17:18:15.037595353+08:00","level":"INFO","msg":"writer: Close: closed","stream_id":"emk5sx1a"}
+{"time":"2025-05-10T17:18:15.037626328+08:00","level":"INFO","msg":"sender: closed","stream_id":"emk5sx1a"}
+{"time":"2025-05-10T17:18:15.037653341+08:00","level":"INFO","msg":"stream: closed","id":"emk5sx1a"}

@@ -1,0 +1,49 @@
+Epoch 0:
+  Train Loss: 0.6116 (Steering: 0.2892, speed: 0.3225)
+  Val   Loss: 0.5015 (Steering: 0.2432, speed: 0.2583)
+  Learning Rate: 0.00001000
+
+Epoch 1:
+  Train Loss: 0.5261 (Steering: 0.2562, speed: 0.2699)
+  Val   Loss: 0.4472 (Steering: 0.2235, speed: 0.2237)
+  Learning Rate: 0.00001000
+
+Epoch 2:
+  Train Loss: 0.4931 (Steering: 0.2465, speed: 0.2466)
+  Val   Loss: 0.4290 (Steering: 0.2171, speed: 0.2119)
+  Learning Rate: 0.00001000
+
+Epoch 3:
+  Train Loss: 0.4709 (Steering: 0.2374, speed: 0.2335)
+  Val   Loss: 0.4182 (Steering: 0.2157, speed: 0.2025)
+  Learning Rate: 0.00001000
+
+Epoch 4:
+  Train Loss: 0.4563 (Steering: 0.2317, speed: 0.2246)
+  Val   Loss: 0.4115 (Steering: 0.2137, speed: 0.1979)
+  Learning Rate: 0.00001000
+
+Epoch 5:
+  Train Loss: 0.4473 (Steering: 0.2277, speed: 0.2195)
+  Val   Loss: 0.4104 (Steering: 0.2133, speed: 0.1971)
+  Learning Rate: 0.00001000
+
+Epoch 6:
+  Train Loss: 0.4368 (Steering: 0.2221, speed: 0.2147)
+  Val   Loss: 0.3992 (Steering: 0.2072, speed: 0.1920)
+  Learning Rate: 0.00001000
+
+Epoch 7:
+  Train Loss: 0.4272 (Steering: 0.2162, speed: 0.2110)
+  Val   Loss: 0.3934 (Steering: 0.1995, speed: 0.1939)
+  Learning Rate: 0.00001000
+
+Epoch 8:
+  Train Loss: 0.4196 (Steering: 0.2115, speed: 0.2082)
+  Val   Loss: 0.3826 (Steering: 0.1973, speed: 0.1852)
+  Learning Rate: 0.00001000
+
+Epoch 9:
+  Train Loss: 0.4119 (Steering: 0.2073, speed: 0.2046)
+  Val   Loss: 0.3832 (Steering: 0.1994, speed: 0.1838)
+  Learning Rate: 0.00001000

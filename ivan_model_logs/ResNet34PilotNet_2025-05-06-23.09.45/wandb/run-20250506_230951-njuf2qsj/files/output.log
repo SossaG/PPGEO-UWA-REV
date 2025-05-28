@@ -1,0 +1,49 @@
+Epoch 0:
+  Train Loss: 0.3145 (Steering: 0.1198, speed: 0.1948)
+  Val   Loss: 0.2194 (Steering: 0.0830, speed: 0.1364)
+  Learning Rate: 0.00001000
+
+Epoch 1:
+  Train Loss: 0.2029 (Steering: 0.0840, speed: 0.1189)
+  Val   Loss: 0.1756 (Steering: 0.0738, speed: 0.1018)
+  Learning Rate: 0.00001000
+
+Epoch 2:
+  Train Loss: 0.1716 (Steering: 0.0748, speed: 0.0968)
+  Val   Loss: 0.1569 (Steering: 0.0687, speed: 0.0882)
+  Learning Rate: 0.00001000
+
+Epoch 3:
+  Train Loss: 0.1525 (Steering: 0.0687, speed: 0.0838)
+  Val   Loss: 0.1573 (Steering: 0.0638, speed: 0.0935)
+  Learning Rate: 0.00001000
+
+Epoch 4:
+  Train Loss: 0.1395 (Steering: 0.0642, speed: 0.0752)
+  Val   Loss: 0.1438 (Steering: 0.0572, speed: 0.0866)
+  Learning Rate: 0.00001000
+
+Epoch 5:
+  Train Loss: 0.1294 (Steering: 0.0607, speed: 0.0686)
+  Val   Loss: 0.1354 (Steering: 0.0580, speed: 0.0774)
+  Learning Rate: 0.00001000
+
+Epoch 6:
+  Train Loss: 0.1212 (Steering: 0.0577, speed: 0.0635)
+  Val   Loss: 0.1547 (Steering: 0.0604, speed: 0.0942)
+  Learning Rate: 0.00001000
+
+Epoch 7:
+  Train Loss: 0.1135 (Steering: 0.0550, speed: 0.0586)
+  Val   Loss: 0.1536 (Steering: 0.0562, speed: 0.0974)
+  Learning Rate: 0.00001000
+Traceback (most recent call last):
+  File "train.py", line 202, in <module>
+    main()
+  File "train.py", line 185, in main
+    scheduler.step(val_loss)
+  File "/home/sim/miniconda3/envs/ivan/lib/python3.8/site-packages/torch/optim/lr_scheduler.py", line 1336, in step
+    self._reduce_lr(epoch)
+  File "/home/sim/miniconda3/envs/ivan/lib/python3.8/site-packages/torch/optim/lr_scheduler.py", line 1345, in _reduce_lr
+    new_lr = max(old_lr * self.factor, self.min_lrs[i])
+TypeError: '>' not supported between instances of 'str' and 'float'

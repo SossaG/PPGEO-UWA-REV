@@ -1,0 +1,15 @@
+{"time":"2025-05-03T23:42:52.429741345+08:00","level":"INFO","msg":"stream: starting","core version":"0.19.10","symlink path":"saved_models_logs/ResNet34PilotNet_2025-05-03-23.42.45/wandb/run-20250503_234252-gmh536c1/logs/debug-core.log"}
+{"time":"2025-05-03T23:42:52.93946058+08:00","level":"INFO","msg":"created new stream","id":"gmh536c1"}
+{"time":"2025-05-03T23:42:52.939542338+08:00","level":"INFO","msg":"stream: started","id":"gmh536c1"}
+{"time":"2025-05-03T23:42:52.939577431+08:00","level":"INFO","msg":"writer: Do: started","stream_id":"gmh536c1"}
+{"time":"2025-05-03T23:42:52.939624647+08:00","level":"INFO","msg":"handler: started","stream_id":"gmh536c1"}
+{"time":"2025-05-03T23:42:52.939696133+08:00","level":"INFO","msg":"sender: started","stream_id":"gmh536c1"}
+{"time":"2025-05-03T23:42:53.296490062+08:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-05-03T23:43:25.751789315+08:00","level":"INFO","msg":"stream: closing","id":"gmh536c1"}
+{"time":"2025-05-03T23:43:25.751813005+08:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-05-03T23:43:25.7518538+08:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-05-03T23:43:27.113030827+08:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-05-03T23:43:27.539054244+08:00","level":"INFO","msg":"handler: closed","stream_id":"gmh536c1"}
+{"time":"2025-05-03T23:43:27.539156331+08:00","level":"INFO","msg":"sender: closed","stream_id":"gmh536c1"}
+{"time":"2025-05-03T23:43:27.539128611+08:00","level":"INFO","msg":"writer: Close: closed","stream_id":"gmh536c1"}
+{"time":"2025-05-03T23:43:27.53930808+08:00","level":"INFO","msg":"stream: closed","id":"gmh536c1"}

@@ -1,4 +1,4 @@
-from models import ResNet34PilotNet
+from models_ivan import ResNet34PilotNet
 from utils import load_config
 
 cfg = load_config("conf/config.yaml")  # Adjust if your path differs
