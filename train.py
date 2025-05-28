@@ -15,7 +15,7 @@ import logging
 import wandb
 
 from dataset import EGLintonDataset
-from models import ResNet34PilotNet
+from models_ivan import ResNet34PilotNet
 from utils import load_config, build_callbacks, log_metrics
 
 

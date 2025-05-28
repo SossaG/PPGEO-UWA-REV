@@ -2,7 +2,7 @@ import torch
 import cv2
 import numpy as np
 from torchvision import transforms
-from models import ResNet34PilotNet
+from models_ivan import ResNet34PilotNet
 import yaml
 import os
 

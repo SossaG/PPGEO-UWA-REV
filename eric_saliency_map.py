@@ -43,52 +43,68 @@ import torch
 import cv2
 import numpy as np
 from torchvision import transforms
-from models import ResNet34PilotNet
+from models_ivan import ResNet34PilotNet
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # load your single‐channel model
 pt_model = ResNet34PilotNet(use_rgb=False).to(device)
-pt_model.load_state_dict(torch.load("path/to/your_model.pt", map_location=device))
+pt_model.load_state_dict(torch.load("ivan_model_logs/ppgeo partially frozen gray 0.1/ResNet34PilotNet.pt", map_location=device))
 pt_model.eval()
 
 def compute_pytorch_saliency(gray):
-    """
-    gray_bgr_patch: H×W×3 BGR image (just stacked gray channel)
-    returns (heatmap_BGR, steering, speed)
-    """
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    gray = cv2.resize(img, (400, 240))
-    arr = img.astype(np.float32) / 255.0
-    arr = arr[None, :, :]           # H×W → 1×H×W
+    
+    gray = cv2.resize(gray, (400, 240))
+    image = np.expand_dims(gray.astype(np.float32) / 255.0, axis=-1)
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.5], std=[0.5])
+    ])
 
-    # normalize around 0.5
-    normalize = transforms.Normalize(mean=[0.5], std=[0.5])
-    inp = torch.tensor(arr).unsqueeze(0).to(device)  # → 1×1×H×W
-    inp = normalize(inp)
-    inp.requires_grad_()
+    input_tensor = transform(image).unsqueeze(0).to(device)
+    input_tensor.requires_grad_()
 
-    # forward + grad for speed
-    speed, _ = pt_model(inp)
-    pt_model.zero_grad()
-    speed.backward(torch.ones_like(speed), retain_graph=True)
-    s_sal = inp.grad.abs().mean(1, keepdim=True).cpu().squeeze().numpy()
-    inp.grad.zero_()
+    # === Compute both saliency maps ===
+    class OutputSelector(torch.nn.Module):
+        def __init__(self, model):
+            super().__init__()
+            self.model = model
 
-    # forward + grad for steering
-    _, steer = pt_model(inp)
-    steer.backward(torch.ones_like(steer))
-    t_sal = inp.grad.abs().mean(1, keepdim=True).cpu().squeeze().numpy()
+        def forward(self, x):
+            return self.model(x)
 
-    # combine + normalize
-    cmb = 0.5*(s_sal + t_sal)
-    cmb -= cmb.min()
-    cmb /= (cmb.max() + 1e-8)
+    model = OutputSelector(pt_model)
 
-    # to heatmap
-    heat = cv2.applyColorMap((cmb*255).astype(np.uint8),
-                             cv2.COLORMAP_JET)
-    return heat, steer.item(), speed.item()
+    # === Forward for speed saliency ===
+    model.zero_grad()
+    speed_output, _ = model(input_tensor)
+    speed_output.backward(torch.ones_like(speed_output), retain_graph=True)
+    speed_saliency = input_tensor.grad.data.abs().squeeze().cpu().numpy()
+    input_tensor.grad.zero_()
+
+    # === Forward for steering saliency ===
+    input_tensor.requires_grad_()
+    model.zero_grad()
+    _, steering_output = model(input_tensor)
+    steering_output.backward(torch.ones_like(steering_output))
+    steering_saliency = input_tensor.grad.data.abs().squeeze().cpu().numpy()
+
+    # === Combine saliency maps ===
+    if speed_saliency.ndim == 3:
+        speed_saliency = np.mean(speed_saliency, axis=0)
+    if steering_saliency.ndim == 3:
+        steering_saliency = np.mean(steering_saliency, axis=0)
+
+    combined_saliency = (speed_saliency + steering_saliency) / 2.0
+    combined_saliency = (combined_saliency - combined_saliency.min()) / (combined_saliency.max() - combined_saliency.min() + 1e-8)
+    saliency_colored = cv2.applyColorMap(np.uint8(255 * combined_saliency), cv2.COLORMAP_JET)
+
+    # === Base visuals ===
+    original_bgr = cv2.cvtColor((image.squeeze(-1) * 255).astype(np.uint8),
+                                cv2.COLOR_GRAY2BGR)
+    blue_base = original_bgr.copy()  # translucent overlay on real image instead of flat blue  # lighter blue tint for clearer overlay  # blue background in BGR
+    saliency_overlay = cv2.addWeighted(blue_base, 0.3, saliency_colored, 0.7, 0)  # stronger saliency blend
+    return saliency_overlay
 
 def Image_Processing(image):
     height, width, _ = image.shape
@@ -466,15 +482,7 @@ class Data_Sorting():
                         nn_linear = float(interpreter[state][0].predict(img_input)[0])
                         nn_angular = float(interpreter[state][0].predict(img_input)[1]) 
 
-
-                        # PyTorch saliency (grayscale only) 
-                        pt_heat, pt_steer, pt_speed = compute_pytorch_saliency(img_front)
-                        pt_overlay = cv2.addWeighted(img_front, 0.4, pt_heat, 0.6, 0)
-
-                        cv2.putText(pt_overlay, f"PT Steering {pt_steer:.2f}", (10,20),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1)
-                        cv2.putText(pt_overlay, f"PT Speed    {pt_speed:.2f}", (10,40),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1)
+                        pt_saliency =  compute_pytorch_saliency(img_front)
 
                 text_data = [
                     ("step: ", step, (50, 20)),
@@ -535,12 +543,12 @@ class Data_Sorting():
                     cv2.imshow('record',img_front_)
                     if mani_mode=="Saliency":
                         saliency_map_ = np.concatenate((saliency_map, np.zeros((60, saliency_map.shape[1],3 ),dtype=saliency_map.dtype)), axis=0)
-                        saliency_map_ = cv2.resize(saliency_map_, (600, 450))
-                        cv2.imshow('saliency', saliency_map_)
-
                         # show side-by-side with Eric's map (saliency_map_ from his code)
-                        combo = np.concatenate((saliency_map_, pt_overlay), axis=1)
-                        cv2.imshow("Compare Eric vs PyTorch", combo)
+                        combo = np.concatenate((saliency_map_, pt_saliency), axis=0)
+                        combo = cv2.resize(saliency_map_, (600, 450))
+                        cv2.imshow('saliency', combo)
+
+                        cv2.imshow('ivan_saliency', pt_saliency)
 
                     
 
@@ -553,6 +561,8 @@ class Data_Sorting():
                         saliency_map_ = np.concatenate((saliency_map, np.zeros((60, saliency_map.shape[1],3),dtype=saliency_map.dtype)), axis=0)
                         saliency_map_ = cv2.resize(saliency_map_, (600, 450))
                         cv2.imshow('saliency', saliency_map_)
+
+                        cv2.imshow('ivan_saliency', pt_saliency)
                 key=cv2.waitKey()
                 #print("key: ",key)
                 curr_time = time.time()

@@ -4,7 +4,7 @@ import numpy as np
 from torchvision import transforms
 from pytorch_grad_cam import EigenCAM, GradCAM, GradCAMPlusPlus, ScoreCAM, LayerCAM
 from pytorch_grad_cam.utils.image import show_cam_on_image
-from models import ResNet34PilotNet
+from models_ivan import ResNet34PilotNet
 import yaml
 
 # === CONFIG ===
