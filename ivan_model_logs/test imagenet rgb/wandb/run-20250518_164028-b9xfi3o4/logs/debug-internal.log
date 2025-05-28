@@ -1,0 +1,28 @@
+{"time":"2025-05-18T16:40:28.251579324+08:00","level":"INFO","msg":"stream: starting","core version":"0.19.10","symlink path":"saved_models_logs/ResNet34PilotNet_2025-05-18-16.40.21/wandb/run-20250518_164028-b9xfi3o4/logs/debug-core.log"}
+{"time":"2025-05-18T16:40:28.743312803+08:00","level":"INFO","msg":"created new stream","id":"b9xfi3o4"}
+{"time":"2025-05-18T16:40:28.743337802+08:00","level":"INFO","msg":"stream: started","id":"b9xfi3o4"}
+{"time":"2025-05-18T16:40:28.743354924+08:00","level":"INFO","msg":"writer: Do: started","stream_id":"b9xfi3o4"}
+{"time":"2025-05-18T16:40:28.743401741+08:00","level":"INFO","msg":"sender: started","stream_id":"b9xfi3o4"}
+{"time":"2025-05-18T16:40:28.743525552+08:00","level":"INFO","msg":"handler: started","stream_id":"b9xfi3o4"}
+{"time":"2025-05-18T16:40:29.195884142+08:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-05-18T16:59:59.183079492+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/files/uwa-rev/eglinton_bus/b9xfi3o4/file_stream\": dial tcp: lookup api.wandb.ai on 127.0.0.53:53: server misbehaving"}
+{"time":"2025-05-18T16:59:59.342495804+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": net/http: request canceled (Client.Timeout exceeded while awaiting headers)"}
+{"time":"2025-05-18T17:00:31.629489047+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)"}
+{"time":"2025-05-18T17:00:36.047108513+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/files/uwa-rev/eglinton_bus/b9xfi3o4/file_stream\": dial tcp: lookup api.wandb.ai on 127.0.0.53:53: read udp 127.0.0.1:42763->127.0.0.53:53: i/o timeout"}
+{"time":"2025-05-18T17:01:06.242430445+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": net/http: request canceled (Client.Timeout exceeded while awaiting headers)"}
+{"time":"2025-05-18T17:01:12.911141625+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/files/uwa-rev/eglinton_bus/b9xfi3o4/file_stream\": dial tcp: lookup api.wandb.ai on 127.0.0.53:53: read udp 127.0.0.1:46642->127.0.0.53:53: i/o timeout"}
+{"time":"2025-05-18T17:01:46.068636356+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": net/http: request canceled (Client.Timeout exceeded while awaiting headers)"}
+{"time":"2025-05-18T17:01:55.919157879+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/files/uwa-rev/eglinton_bus/b9xfi3o4/file_stream\": dial tcp: lookup api.wandb.ai on 127.0.0.53:53: read udp 127.0.0.1:54606->127.0.0.53:53: i/o timeout"}
+{"time":"2025-05-18T17:02:35.594100097+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": net/http: request canceled (Client.Timeout exceeded while awaiting headers)"}
+{"time":"2025-05-18T17:03:45.224969358+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": net/http: request canceled (Client.Timeout exceeded while awaiting headers)"}
+{"time":"2025-05-18T17:05:15.227232539+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": net/http: request canceled (Client.Timeout exceeded while awaiting headers)"}
+{"time":"2025-05-18T17:06:31.777828968+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": read tcp 192.168.2.118:57956->35.186.228.49:443: read: connection reset by peer"}
+{"time":"2025-05-18T17:11:45.477981816+08:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-05-18T17:11:45.479153257+08:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-05-18T17:11:46.477252252+08:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading output.log","runtime_seconds":0.135699445},{"desc":"uploading wandb-summary.json","runtime_seconds":0.134020768}],"total_operations":2}}
+{"time":"2025-05-18T17:11:47.249826598+08:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-05-18T17:11:48.078745532+08:00","level":"INFO","msg":"stream: closing","id":"b9xfi3o4"}
+{"time":"2025-05-18T17:11:48.078765309+08:00","level":"INFO","msg":"handler: closed","stream_id":"b9xfi3o4"}
+{"time":"2025-05-18T17:11:48.078807727+08:00","level":"INFO","msg":"writer: Close: closed","stream_id":"b9xfi3o4"}
+{"time":"2025-05-18T17:11:48.078837529+08:00","level":"INFO","msg":"sender: closed","stream_id":"b9xfi3o4"}
+{"time":"2025-05-18T17:11:48.078854377+08:00","level":"INFO","msg":"stream: closed","id":"b9xfi3o4"}

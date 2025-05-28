@@ -1,0 +1,16 @@
+{"time":"2025-05-01T13:02:43.043748429+08:00","level":"INFO","msg":"stream: starting","core version":"0.19.10","symlink path":"saved_models_logs/ResNet34PilotNet_2025-05-01-13.02.37/wandb/run-20250501_130242-ksb5by87/logs/debug-core.log"}
+{"time":"2025-05-01T13:02:43.492640668+08:00","level":"INFO","msg":"created new stream","id":"ksb5by87"}
+{"time":"2025-05-01T13:02:43.492715067+08:00","level":"INFO","msg":"stream: started","id":"ksb5by87"}
+{"time":"2025-05-01T13:02:43.492749127+08:00","level":"INFO","msg":"writer: Do: started","stream_id":"ksb5by87"}
+{"time":"2025-05-01T13:02:43.492801783+08:00","level":"INFO","msg":"sender: started","stream_id":"ksb5by87"}
+{"time":"2025-05-01T13:02:43.49287819+08:00","level":"INFO","msg":"handler: started","stream_id":"ksb5by87"}
+{"time":"2025-05-01T13:02:44.000647417+08:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-05-01T13:22:14.111690118+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/graphql\": net/http: request canceled (Client.Timeout exceeded while awaiting headers)"}
+{"time":"2025-05-01T13:39:48.416644921+08:00","level":"INFO","msg":"stream: closing","id":"ksb5by87"}
+{"time":"2025-05-01T13:39:48.416732434+08:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-05-01T13:39:48.416886793+08:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-05-01T13:39:49.364254464+08:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-05-01T13:39:49.775693598+08:00","level":"INFO","msg":"handler: closed","stream_id":"ksb5by87"}
+{"time":"2025-05-01T13:39:49.775790782+08:00","level":"INFO","msg":"sender: closed","stream_id":"ksb5by87"}
+{"time":"2025-05-01T13:39:49.775786671+08:00","level":"INFO","msg":"writer: Close: closed","stream_id":"ksb5by87"}
+{"time":"2025-05-01T13:39:49.776003115+08:00","level":"INFO","msg":"stream: closed","id":"ksb5by87"}

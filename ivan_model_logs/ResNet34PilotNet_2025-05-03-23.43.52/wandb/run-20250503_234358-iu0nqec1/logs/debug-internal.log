@@ -1,0 +1,17 @@
+{"time":"2025-05-03T23:43:58.66601222+08:00","level":"INFO","msg":"stream: starting","core version":"0.19.10","symlink path":"saved_models_logs/ResNet34PilotNet_2025-05-03-23.43.52/wandb/run-20250503_234358-iu0nqec1/logs/debug-core.log"}
+{"time":"2025-05-03T23:43:59.149716443+08:00","level":"INFO","msg":"created new stream","id":"iu0nqec1"}
+{"time":"2025-05-03T23:43:59.149801364+08:00","level":"INFO","msg":"stream: started","id":"iu0nqec1"}
+{"time":"2025-05-03T23:43:59.14984193+08:00","level":"INFO","msg":"writer: Do: started","stream_id":"iu0nqec1"}
+{"time":"2025-05-03T23:43:59.149909704+08:00","level":"INFO","msg":"handler: started","stream_id":"iu0nqec1"}
+{"time":"2025-05-03T23:43:59.149945452+08:00","level":"INFO","msg":"sender: started","stream_id":"iu0nqec1"}
+{"time":"2025-05-03T23:43:59.595274386+08:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-05-04T00:04:25.665629928+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/files/uwa-rev/eglinton_bus/iu0nqec1/file_stream\": unexpected EOF"}
+{"time":"2025-05-04T02:05:55.118240218+08:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-05-04T02:05:55.119111491+08:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-05-04T02:05:56.08717896+08:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading output.log","runtime_seconds":0.38510043,"progress":"370B/370B"},{"desc":"uploading wandb-summary.json","runtime_seconds":0.383454569,"progress":"173B/173B"},{"desc":"uploading config.yaml","runtime_seconds":0.105892466,"progress":"5.0KB/5.0KB"}],"total_operations":3}}
+{"time":"2025-05-04T02:05:56.511235524+08:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-05-04T02:05:56.932639229+08:00","level":"INFO","msg":"stream: closing","id":"iu0nqec1"}
+{"time":"2025-05-04T02:05:56.93265235+08:00","level":"INFO","msg":"handler: closed","stream_id":"iu0nqec1"}
+{"time":"2025-05-04T02:05:56.932693515+08:00","level":"INFO","msg":"sender: closed","stream_id":"iu0nqec1"}
+{"time":"2025-05-04T02:05:56.93268914+08:00","level":"INFO","msg":"writer: Close: closed","stream_id":"iu0nqec1"}
+{"time":"2025-05-04T02:05:56.932722688+08:00","level":"INFO","msg":"stream: closed","id":"iu0nqec1"}

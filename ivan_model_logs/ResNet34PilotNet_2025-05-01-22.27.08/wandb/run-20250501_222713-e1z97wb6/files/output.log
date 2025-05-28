@@ -1,0 +1,39 @@
+[Epoch 0] Train: 0.3385, Val: 0.9405
+[Epoch 1] Train: 0.2211, Val: 1.1360
+[Epoch 2] Train: 0.1899, Val: 1.2006
+Traceback (most recent call last):
+  File "train.py", line 149, in <module>
+    main()
+  File "train.py", line 129, in main
+    train_loss = train_epoch(model, train_loader, optimizer, criterion, device)
+  File "train.py", line 30, in train_epoch
+    pred_speed, pred_steer = model(images)
+  File "/home/sim/miniconda3/envs/ivan/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/sim/miniconda3/envs/ivan/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/media/sim/data/ivan/models.py", line 33, in forward
+    x = self.backbone(x)
+  File "/home/sim/miniconda3/envs/ivan/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/sim/miniconda3/envs/ivan/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/sim/miniconda3/envs/ivan/lib/python3.8/site-packages/torchvision/models/resnet.py", line 285, in forward
+    return self._forward_impl(x)
+  File "/home/sim/miniconda3/envs/ivan/lib/python3.8/site-packages/torchvision/models/resnet.py", line 273, in _forward_impl
+    x = self.layer1(x)
+  File "/home/sim/miniconda3/envs/ivan/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/sim/miniconda3/envs/ivan/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/sim/miniconda3/envs/ivan/lib/python3.8/site-packages/torch/nn/modules/container.py", line 219, in forward
+    input = module(input)
+  File "/home/sim/miniconda3/envs/ivan/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/sim/miniconda3/envs/ivan/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/sim/miniconda3/envs/ivan/lib/python3.8/site-packages/torchvision/models/resnet.py", line 92, in forward
+    out = self.conv1(x)
+  File "/home/sim/miniconda3/envs/ivan/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+KeyboardInterrupt

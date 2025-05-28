@@ -1,0 +1,17 @@
+{"time":"2025-05-07T14:39:16.542151656+08:00","level":"INFO","msg":"stream: starting","core version":"0.19.10","symlink path":"saved_models_logs/ResNet34PilotNet_2025-05-07-14.39.09/wandb/run-20250507_143916-bkalbgtq/logs/debug-core.log"}
+{"time":"2025-05-07T14:39:17.027813399+08:00","level":"INFO","msg":"created new stream","id":"bkalbgtq"}
+{"time":"2025-05-07T14:39:17.027849849+08:00","level":"INFO","msg":"stream: started","id":"bkalbgtq"}
+{"time":"2025-05-07T14:39:17.027864005+08:00","level":"INFO","msg":"handler: started","stream_id":"bkalbgtq"}
+{"time":"2025-05-07T14:39:17.027880811+08:00","level":"INFO","msg":"writer: Do: started","stream_id":"bkalbgtq"}
+{"time":"2025-05-07T14:39:17.027868167+08:00","level":"INFO","msg":"sender: started","stream_id":"bkalbgtq"}
+{"time":"2025-05-07T14:39:17.411573493+08:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-05-07T15:24:58.612227487+08:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/files/uwa-rev/eglinton_bus/bkalbgtq/file_stream\": unexpected EOF"}
+{"time":"2025-05-07T17:20:43.128307696+08:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-05-07T17:20:43.129449801+08:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-05-07T17:20:44.124743468+08:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading wandb-summary.json","runtime_seconds":0.399586077,"progress":"367B/367B"},{"desc":"uploading output.log","runtime_seconds":0.398238185,"progress":"1.4KB/1.4KB"},{"desc":"uploading config.yaml","runtime_seconds":0.090955879,"progress":"5.1KB/5.1KB"}],"total_operations":3}}
+{"time":"2025-05-07T17:20:44.580087893+08:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-05-07T17:20:45.063265195+08:00","level":"INFO","msg":"stream: closing","id":"bkalbgtq"}
+{"time":"2025-05-07T17:20:45.063286712+08:00","level":"INFO","msg":"handler: closed","stream_id":"bkalbgtq"}
+{"time":"2025-05-07T17:20:45.063365706+08:00","level":"INFO","msg":"sender: closed","stream_id":"bkalbgtq"}
+{"time":"2025-05-07T17:20:45.063355656+08:00","level":"INFO","msg":"writer: Close: closed","stream_id":"bkalbgtq"}
+{"time":"2025-05-07T17:20:45.063425506+08:00","level":"INFO","msg":"stream: closed","id":"bkalbgtq"}
