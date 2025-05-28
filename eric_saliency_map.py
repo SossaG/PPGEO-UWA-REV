@@ -47,7 +47,7 @@ from models_ivan import ResNet34PilotNet
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# load your single‐channel model
+# loading ivan model (non dynamic, must adjust to be able to dynamically switch between models like eric does)
 pt_model = ResNet34PilotNet(use_rgb=False).to(device)
 pt_model.load_state_dict(torch.load("ivan_model_logs/ppgeo partially frozen gray 0.1/ResNet34PilotNet.pt", map_location=device))
 pt_model.eval()
@@ -104,7 +104,15 @@ def compute_pytorch_saliency(gray):
                                 cv2.COLOR_GRAY2BGR)
     blue_base = original_bgr.copy()  # translucent overlay on real image instead of flat blue  # lighter blue tint for clearer overlay  # blue background in BGR
     saliency_overlay = cv2.addWeighted(blue_base, 0.3, saliency_colored, 0.7, 0)  # stronger saliency blend
-    return saliency_overlay
+
+
+    # for getting speed and angle values
+    speed_tensor, angle_tensor = model(input_tensor)
+    pt_speed = speed_tensor.item()
+    pt_angle = angle_tensor.item()
+
+    
+    return saliency_overlay, pt_speed, pt_angle
 
 def Image_Processing(image):
     height, width, _ = image.shape
@@ -482,7 +490,8 @@ class Data_Sorting():
                         nn_linear = float(interpreter[state][0].predict(img_input)[0])
                         nn_angular = float(interpreter[state][0].predict(img_input)[1]) 
 
-                        pt_saliency =  compute_pytorch_saliency(img_front)
+                        #this part of eric's code is for calulcating the saliency map and model ouputs, i encapsulate this all into this one function
+                        pt_saliency, pt_speed, pt_angle =  compute_pytorch_saliency(img_front)
 
                 text_data = [
                     ("step: ", step, (50, 20)),
@@ -500,10 +509,12 @@ class Data_Sorting():
                     #("linear2: ", modified_linear, (50, 220)),
                     #("angular2: ", modified_angular, (50, 240)),
                 ]
+                img_front_2=np.concatenate((img_front, np.zeros((60, img_front.shape[1]),dtype=img_front.dtype)), axis=0) # duplicating the original img to show my model ouputs, before img one so that it doesnt get graffiti w eric model info
                 for text, value, pos in text_data:
                     img_front = self.text_on_image(img_front, f"{text}{value}", pos)
                 #img_front=self.text_on_image(img_front, file, FILE_TEXT_POSITION)
                 img_front_=np.concatenate((img_front, np.zeros((60, img_front.shape[1]),dtype=img_front.dtype)), axis=0)
+                
                 if mani_mode=="Modifying":
                     text_modify_mode = f"mdfy_sp: {round(modified_linear, 3)} mdfy_ag: {round(modified_angular, 3)}"
                     img_front_=self.text_on_image(img_front_, text_modify_mode, (50,280))
@@ -528,25 +539,31 @@ class Data_Sorting():
                     end_point=(tuple(map(lambda x, y: round(x) - round(y), START_POINT, (LINE_MAX_LEN*np.sign(linear)*linear*np.sin(LINE_MAX_ANGLE*angular),LINE_MAX_LEN*np.sign(linear)*linear*np.cos(LINE_MAX_ANGLE*angular)))))
                     img_front_=self.line_on_image(img_front_, START_POINT, end_point)
                 elif mani_mode=="Saliency":
+                    #i now replicate what eric did with his output visualisation onto a new image
                     text_nn_mode = f"state {state} nn_sp: {round(nn_linear, 3)} nn_ag: {round(nn_angular, 3)}" 
+                    text_nn_mode2 = f"ivan: pt_sp: {round(pt_speed, 3)} pt_ag: {round(pt_angle, 3)}" 
                     img_front_=self.text_on_image(img_front_, text_nn_mode , (50,280))
+                    img_front_2=self.text_on_image(img_front_2, text_nn_mode2 , (50,280))
                     end_point=(tuple(map(lambda x, y: round(x) - round(y), START_POINT, (LINE_MAX_LEN*nn_linear*np.sin(LINE_MAX_ANGLE*nn_angular),LINE_MAX_LEN*nn_linear*np.cos(LINE_MAX_ANGLE*nn_angular)))))
+                    end_point2=(tuple(map(lambda x, y: round(x) - round(y), START_POINT, (LINE_MAX_LEN*pt_speed*np.sin(LINE_MAX_ANGLE*pt_angle),LINE_MAX_LEN*pt_speed*np.cos(LINE_MAX_ANGLE*pt_angle)))))
                     img_front_=self.line_on_image(img_front_, START_POINT, end_point)
+                    img_front_2=self.line_on_image(img_front_2, START_POINT, end_point2)
+
                 else:
                     text_mode = f"sp: {round(linear, 3)} ag: {round(angular, 3)}"
                     img_front_=self.text_on_image(img_front_, text_mode, (50,280))
                     end_point=(tuple(map(lambda x, y: round(x) - round(y), START_POINT, (LINE_MAX_LEN*linear*np.sin(LINE_MAX_ANGLE*angular),LINE_MAX_LEN*linear*np.cos(LINE_MAX_ANGLE*angular)))))
                     img_front_=self.line_on_image(img_front_, START_POINT, end_point)
                 img_front_=cv2.resize(img_front_, (600, 450))
+                img_front_2=cv2.resize(img_front_2, (600, 450)) # again, replicate what eric did 
                 if img_rear is None:
                     #print("imge size: ",img_front_.shape)
                     cv2.imshow('record',img_front_)
+                    cv2.imshow('record2',img_front_2) #show my image separately to eric's
                     if mani_mode=="Saliency":
-                        saliency_map_ = np.concatenate((saliency_map, np.zeros((60, saliency_map.shape[1],3 ),dtype=saliency_map.dtype)), axis=0)
-                        # show side-by-side with Eric's map (saliency_map_ from his code)
-                        combo = np.concatenate((saliency_map_, pt_saliency), axis=0)
-                        combo = cv2.resize(saliency_map_, (600, 450))
-                        cv2.imshow('saliency', combo)
+                        saliency_map_ = np.concatenate((saliency_map, np.zeros((60, saliency_map.shape[1],3),dtype=saliency_map.dtype)), axis=0)
+                        saliency_map_ = cv2.resize(saliency_map_, (600, 450))
+                        cv2.imshow('saliency', saliency_map_)
 
                         cv2.imshow('ivan_saliency', pt_saliency)
 
@@ -557,6 +574,7 @@ class Data_Sorting():
                     #print("imge size: ",img_rear_.shape)
                     img_rear_=cv2.resize(img_rear_, (600, 450))
                     cv2.imshow('record',np.concatenate((img_front_, img_rear_), axis=1))
+                    cv2.imshow('record2',img_front_2) #show my image separeatley to eric's
                     if mani_mode=="Saliency":
                         saliency_map_ = np.concatenate((saliency_map, np.zeros((60, saliency_map.shape[1],3),dtype=saliency_map.dtype)), axis=0)
                         saliency_map_ = cv2.resize(saliency_map_, (600, 450))
