@@ -46,11 +46,8 @@ from torchvision import transforms
 from models_ivan import ResNet34PilotNet
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+pt_model = None
 
-# loading ivan model (non dynamic, must adjust to be able to dynamically switch between models like eric does)
-pt_model = ResNet34PilotNet(use_rgb=False).to(device)
-pt_model.load_state_dict(torch.load("ivan_model_logs/ppgeo partially frozen gray 0.1/ResNet34PilotNet.pt", map_location=device))
-pt_model.eval()
 
 def compute_pytorch_saliency(gray):
     
@@ -319,6 +316,10 @@ class Data_Sorting():
     def Section_Auto_Sorting(self):
         pass
     def manual_manipulating(self, mode_idx=4):
+        #defning pt_model variable at the start of method so that it can initialise to semthing first (will be random weights here), must load a model with the 7,8,9,0 keys
+        global pt_model
+        pt_model = ResNet34PilotNet(use_rgb=False).to(device)
+
         mani_mode_list=["Sorting","Modifying","Comparing","Classifying","Saliency"]
         mani_mode=mani_mode_list[mode_idx]
         self.selected_path_dict = path_dict[dataset_dict[4]]
@@ -406,13 +407,12 @@ class Data_Sorting():
                 join(script_path, "saved_models_logs/old_models/BW_Scan_B1_Cmd0_Single_2025-03-20-20.55.46/BW_Scan_B1_Cmd0_2025-03-20-20.55.46.keras"),
             ]
 
-            """ pt_model_list = [
-                join(script_path, "saved") ,
-                join(script_path, "saved_models_logs/"),
-                join(script_path, "saved_models_logs/"),
-                join(script_path, "saved_models_logs/"),
-                join(script_path, "saved_models_logs/"),
-            ] """
+            pt_model_list = [
+                join(script_path, "ivan_model_logs/ppgeo partially frozen gray 0.1/ResNet34PilotNet.pt"),
+                join(script_path, "ivan_model_logs/ppgeo frozen gray 0.1/ResNet34PilotNet.pt"),
+                join(script_path, "ivan_model_logs/ppgeo unfrozen gray 0.1/ResNet34PilotNet.pt"),
+                join(script_path, "ivan_model_logs/imagenet gray 0.1/ResNet34PilotNet.pt"),
+            ] 
 
             # --- Define score function for the selected output ---
             class OutputScore(Score):
@@ -448,7 +448,7 @@ class Data_Sorting():
             modified_linear_end, modified_angular_end = 0, 0
             self.idx_begin, self.idx_end = 0, None
             last_time, last_linear, stop_flag, self.keep_value = time.time(), 0, 0, False
-            
+
             key=cv2.waitKey()
             if key==ord(' '): 
                 break
@@ -587,6 +587,29 @@ class Data_Sorting():
                 key_interval=curr_time-last_time
                 #print("key_interval: ",key_interval)
                 last_time = curr_time
+
+                #dynamically loading (ivan) different models similar to how eric does so with key input
+                if key in (ord('7'), ord('8'), ord('9'), ord('0')) and mani_mode == "Saliency":
+                    model_key_map = {
+                        ord('7'): 0,
+                        ord('8'): 1,
+                        ord('9'): 2,
+                        ord('0'): 3,
+                    }
+                    selected_model_idx = model_key_map[key]
+                    pt_model_path = pt_model_list[selected_model_idx]
+
+                    try:
+                        #reload the model everytime, and load the saved weights instead of doing at start of script with hard coded model path
+                        pt_model = ResNet34PilotNet(use_rgb=False).to(device)
+                        pt_model.load_state_dict(torch.load(pt_model_path, map_location=device))
+                        pt_model.eval()
+                        print(f"[INFO] Switched to PyTorch model {selected_model_idx + 1}: {pt_model_path}")
+                    except Exception as e:
+                        print(f"[ERROR] Failed to load model from {pt_model_path}: {e}")
+                
+
+                
                 if key== ord('d'):
                     if mani_mode=="Modifying":
                         #print("key_interval: ",key_interval)
