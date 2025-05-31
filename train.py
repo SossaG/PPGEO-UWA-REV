@@ -168,7 +168,7 @@ def main():
         best_val_loss = float('inf')
 
         if cfg['training'].get('load_checkpoint', False):
-            checkpoint_path = os.path.join(save_dir, 'checkpoint.pt')
+            checkpoint_path = os.path.join(save_dir, f'{run_name}_checkpoint.pt')
             if os.path.exists(checkpoint_path):
                 print(f"Loading checkpoint from {checkpoint_path}")
                 checkpoint = torch.load(checkpoint_path, map_location='cpu')
@@ -208,6 +208,8 @@ def main():
             dir=save_dir,
             mode=cfg['wandb'].get('mode', 'online')
         )
+        run_name = wandb.run.name  # To be able to use it for saved model name
+
 
         best_val_loss = float('inf')
         patience_counter = 0
@@ -238,13 +240,16 @@ def main():
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
                 patience_counter = 0
+                # checkpoint.pt saves not just weights, but all the other info as well
+                checkpoint_path = os.path.join(save_dir, f'{run_name}_checkpoint.pt') 
                 torch.save({
                     'epoch': epoch + 1,
                     'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                     'scheduler_state_dict': scheduler.state_dict(),
                     'best_val_loss': best_val_loss
-                }, os.path.join(save_dir, 'checkpoint.pt'))
+                }, checkpoint_path)
+
             else:
                 patience_counter += 1
 
