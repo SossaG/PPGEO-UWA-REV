@@ -6,9 +6,10 @@ from torch.utils.data import Dataset
 import cv2
 
 class EGLintonDataset(Dataset):
-    def __init__(self, cfg, subset='train'):
+    def __init__(self, cfg, subset='train', cmd_key='cmd_0'):
         self.cfg = cfg
         self.subset = subset
+        self.cmd_key = cmd_key
 
         data_dir = os.path.join(os.path.dirname(__file__), cfg['dataset']['sorted_data_path'])
         self.dataset_idx_list = cfg['dataset']['dataset_idx_list']
@@ -50,17 +51,17 @@ class EGLintonDataset(Dataset):
     def _populate_files(self, base_path):
         for idx in self.dataset_idx_list:
             base_folder = os.path.join(base_path, self.dataset_mapping[idx])
-            for cmd_key, cmd_spec in self.behavior_lists.items():
-                if cmd_key == 'main':
+            cmd_spec = self.behavior_lists[self.cmd_key]
+            behavior_list = cmd_spec['list']
+            for behavior in behavior_list:
+                behavior_path = os.path.join(base_folder, behavior)
+                if not os.path.exists(behavior_path):
                     continue
-                for behavior in cmd_spec['list']:
-                    behavior_path = os.path.join(base_folder, behavior)
-                    if not os.path.exists(behavior_path):
-                        continue
-                    for root, _, files in os.walk(behavior_path):
-                        for f in files:
-                            if f.endswith('.npy'):
-                                self.files.append(os.path.join(root, f))
+                for root, _, files in os.walk(behavior_path):
+                    for f in files:
+                        if f.endswith('.npy'):
+                            self.files.append(os.path.join(root, f))
+
 
     def __len__(self):
         return len(self.files)
