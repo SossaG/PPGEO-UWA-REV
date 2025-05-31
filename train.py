@@ -164,6 +164,29 @@ def main():
         scheduler = callbacks['lr_scheduler']
         criterion = nn.L1Loss()
 
+        start_epoch = 0
+        best_val_loss = float('inf')
+
+        if cfg['training'].get('load_checkpoint', False):
+            checkpoint_path = os.path.join(save_dir, 'checkpoint.pt')
+            if os.path.exists(checkpoint_path):
+                print(f"Loading checkpoint from {checkpoint_path}")
+                checkpoint = torch.load(checkpoint_path, map_location='cpu')
+                required_keys = ['model_state_dict', 'optimizer_state_dict', 'scheduler_state_dict']
+                missing_keys = [k for k in required_keys if k not in checkpoint]
+                if missing_keys:
+                    print(f"⚠️ Warning: Missing keys in checkpoint: {missing_keys}")
+
+                model.load_state_dict(checkpoint['model_state_dict'])
+                optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+                scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+                best_val_loss = checkpoint.get('best_val_loss', float('inf'))
+                start_epoch = checkpoint.get('epoch', 0)
+                wandb.log({"resumed_from_checkpoint": True}, step=start_epoch)
+            else:
+                print(f"No checkpoint found at {checkpoint_path}, starting from scratch.")
+
+
         # === Load per-cmd dataset ===
         train_dataset = EGLintonDataset(cfg, subset='train', cmd_key=cmd_key)
         val_dataset = EGLintonDataset(cfg, subset='val', cmd_key=cmd_key)
@@ -189,7 +212,7 @@ def main():
         best_val_loss = float('inf')
         patience_counter = 0
 
-        for epoch in range(cfg['training']['epochs']):
+        for epoch in range(start_epoch, cfg['training']['epochs']):
             train_loss, train_loss_steering, train_loss_speed = train_epoch(model, train_loader, optimizer, criterion, device, cfg)
             val_loss, val_loss_steering, val_loss_speed = validate_epoch(model, val_loader, criterion, device, cfg)
 
@@ -215,7 +238,13 @@ def main():
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
                 patience_counter = 0
-                torch.save(model.state_dict(), os.path.join(save_dir, f"{cfg['model']['name']}.pt"))
+                torch.save({
+                    'epoch': epoch + 1,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'scheduler_state_dict': scheduler.state_dict(),
+                    'best_val_loss': best_val_loss
+                }, os.path.join(save_dir, 'checkpoint.pt'))
             else:
                 patience_counter += 1
 
