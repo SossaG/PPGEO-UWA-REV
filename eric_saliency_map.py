@@ -86,21 +86,25 @@ def compute_pytorch_saliency(gray):
     steering_output.backward(torch.ones_like(steering_output))
     steering_saliency = input_tensor.grad.data.abs().squeeze().cpu().numpy()
 
-    # === Combine saliency maps ===
+    # === Normalize saliency map ===
     if speed_saliency.ndim == 3:
         speed_saliency = np.mean(speed_saliency, axis=0)
     if steering_saliency.ndim == 3:
         steering_saliency = np.mean(steering_saliency, axis=0)
 
     combined_saliency = (speed_saliency + steering_saliency) / 2.0
+    combined_saliency = np.clip(combined_saliency, 0, None)
     combined_saliency = (combined_saliency - combined_saliency.min()) / (combined_saliency.max() - combined_saliency.min() + 1e-8)
-    saliency_colored = cv2.applyColorMap(np.uint8(255 * combined_saliency), cv2.COLORMAP_JET)
 
-    # === Base visuals ===
-    original_bgr = cv2.cvtColor((image.squeeze(-1) * 255).astype(np.uint8),
-                                cv2.COLOR_GRAY2BGR)
-    blue_base = original_bgr.copy()  # translucent overlay on real image instead of flat blue  # lighter blue tint for clearer overlay  # blue background in BGR
-    saliency_overlay = cv2.addWeighted(blue_base, 0.3, saliency_colored, 0.7, 0)  # stronger saliency blend
+    # === Convert to uint8 and resize to match input ===
+    combined_saliency = np.uint8(255 * combined_saliency)
+    combined_saliency = cv2.resize(combined_saliency, (image.shape[1], image.shape[0]))  # (W, H)
+
+    # === Apply color map and overlay ===
+    saliency_colored = cv2.applyColorMap(combined_saliency, cv2.COLORMAP_JET)
+    img_color = cv2.cvtColor((image.squeeze(-1) * 255).astype(np.uint8), cv2.COLOR_GRAY2BGR)
+    saliency_overlay = cv2.addWeighted(img_color, 0.5, saliency_colored, 0.5, 0)
+
 
 
     # for getting speed and angle values
@@ -412,6 +416,7 @@ class Data_Sorting():
                 join(script_path, "ivan_model_logs/ppgeo frozen gray 0.1/ResNet34PilotNet.pt"),
                 join(script_path, "ivan_model_logs/ppgeo unfrozen gray 0.1/ResNet34PilotNet.pt"),
                 join(script_path, "ivan_model_logs/imagenet gray 0.1/ResNet34PilotNet.pt"),
+                join(script_path, "ivan_model_logs/ppgeo partially frozen gray 0.3/ResNet34PilotNet.pt"),
             ] 
 
             # --- Define score function for the selected output ---
@@ -565,7 +570,9 @@ class Data_Sorting():
                         saliency_map_ = cv2.resize(saliency_map_, (600, 450))
                         cv2.imshow('saliency', saliency_map_)
 
-                        cv2.imshow('ivan_saliency', pt_saliency)
+                        pt_saliency_ = np.concatenate((pt_saliency, np.zeros((60, pt_saliency.shape[1],3),dtype=pt_saliency.dtype)), axis=0)
+                        pt_saliency_ = cv2.resize(pt_saliency_, (600, 450))
+                        cv2.imshow('ivan_saliency', pt_saliency_)
 
                     
 
@@ -580,7 +587,11 @@ class Data_Sorting():
                         saliency_map_ = cv2.resize(saliency_map_, (600, 450))
                         cv2.imshow('saliency', saliency_map_)
 
-                        cv2.imshow('ivan_saliency', pt_saliency)
+                        pt_saliency_ = np.concatenate((pt_saliency, np.zeros((60, pt_saliency.shape[1],3),dtype=pt_saliency.dtype)), axis=0)
+                        pt_saliency_ = cv2.resize(pt_saliency_, (600, 450))
+                        cv2.imshow('ivan_saliency', pt_saliency_)
+
+
                 key=cv2.waitKey()
                 #print("key: ",key)
                 curr_time = time.time()
@@ -589,12 +600,13 @@ class Data_Sorting():
                 last_time = curr_time
 
                 #dynamically loading (ivan) different models similar to how eric does so with key input
-                if key in (ord('7'), ord('8'), ord('9'), ord('0')) and mani_mode == "Saliency":
+                if key in (ord('7'), ord('8'), ord('9'), ord('0'), ord('-')) and mani_mode == "Saliency":
                     model_key_map = {
                         ord('7'): 0,
                         ord('8'): 1,
                         ord('9'): 2,
                         ord('0'): 3,
+                        ord('-'): 4,
                     }
                     selected_model_idx = model_key_map[key]
                     pt_model_path = pt_model_list[selected_model_idx]
