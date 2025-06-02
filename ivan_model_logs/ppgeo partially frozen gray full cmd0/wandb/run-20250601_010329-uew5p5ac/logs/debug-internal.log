@@ -1,0 +1,16 @@
+{"time":"2025-06-01T01:03:29.57997033+08:00","level":"INFO","msg":"stream: starting","core version":"0.19.10","symlink path":"ivan_model_logs/ResNet34PilotNet_cmd_0_2025-06-01-01.03.24/wandb/run-20250601_010329-uew5p5ac/logs/debug-core.log"}
+{"time":"2025-06-01T01:03:30.037175764+08:00","level":"INFO","msg":"created new stream","id":"uew5p5ac"}
+{"time":"2025-06-01T01:03:30.037282286+08:00","level":"INFO","msg":"stream: started","id":"uew5p5ac"}
+{"time":"2025-06-01T01:03:30.037320641+08:00","level":"INFO","msg":"sender: started","stream_id":"uew5p5ac"}
+{"time":"2025-06-01T01:03:30.037431169+08:00","level":"INFO","msg":"writer: Do: started","stream_id":"uew5p5ac"}
+{"time":"2025-06-01T01:03:30.037542995+08:00","level":"INFO","msg":"handler: started","stream_id":"uew5p5ac"}
+{"time":"2025-06-01T01:03:30.410287527+08:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-06-01T07:53:25.968304951+08:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-06-01T07:53:25.969284647+08:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-06-01T07:53:26.970808067+08:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading output.log","runtime_seconds":0.405670678,"progress":"1.4KB/1.4KB"},{"desc":"uploading wandb-summary.json","runtime_seconds":0.403072028,"progress":"370B/370B"},{"desc":"uploading config.yaml","runtime_seconds":0.094565755,"progress":"5.1KB/5.1KB"}],"total_operations":3}}
+{"time":"2025-06-01T07:53:27.424388104+08:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-06-01T07:53:27.805981751+08:00","level":"INFO","msg":"stream: closing","id":"uew5p5ac"}
+{"time":"2025-06-01T07:53:27.806038827+08:00","level":"INFO","msg":"handler: closed","stream_id":"uew5p5ac"}
+{"time":"2025-06-01T07:53:27.806205543+08:00","level":"INFO","msg":"writer: Close: closed","stream_id":"uew5p5ac"}
+{"time":"2025-06-01T07:53:27.806231136+08:00","level":"INFO","msg":"sender: closed","stream_id":"uew5p5ac"}
+{"time":"2025-06-01T07:53:27.806401313+08:00","level":"INFO","msg":"stream: closed","id":"uew5p5ac"}

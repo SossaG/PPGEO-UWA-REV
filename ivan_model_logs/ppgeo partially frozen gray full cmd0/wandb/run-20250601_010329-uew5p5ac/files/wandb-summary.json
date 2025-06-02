@@ -1,0 +1,1 @@
+{"train_loss_speed":0.08852871203768976,"train_loss_steering":0.09094784822215418,"val_loss":0.20544124862599905,"_step":9,"val_loss_speed":0.12534635697486965,"_wandb":{"runtime":24596},"train_loss":0.17947656025967917,"_runtime":24596.388847992,"epoch":9,"lr":2.5e-06,"val_loss_steering":0.08009489170983641,"_timestamp":1.74873560581272e+09,"loss":0.3849178088856782}

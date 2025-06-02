@@ -1,0 +1,42 @@
+{
+  "os": "Linux-5.15.0-139-generic-x86_64-with-glibc2.17",
+  "python": "CPython 3.8.20",
+  "startedAt": "2025-05-31T17:03:29.578902Z",
+  "program": "train.py",
+  "codePath": "train.py",
+  "git": {
+    "remote": "https://github.com/SossaG/PPGEO-UWA-REV.git",
+    "commit": "6dc0fc2c42ce710b15eabecc35424d286cf86e24"
+  },
+  "email": "22964938@student.uwa.edu.au",
+  "root": "ivan_model_logs/ResNet34PilotNet_cmd_0_2025-06-01-01.03.24",
+  "host": "pc20",
+  "executable": "/home/sim/miniconda3/envs/ivan/bin/python3",
+  "codePathLocal": "train.py",
+  "cpu_count": 6,
+  "cpu_count_logical": 12,
+  "gpu": "NVIDIA GeForce RTX 3060",
+  "gpu_count": 1,
+  "disk": {
+    "/": {
+      "total": "195393654784",
+      "used": "172560842752"
+    }
+  },
+  "memory": {
+    "total": "16610033664"
+  },
+  "cpu": {
+    "count": 6,
+    "countLogical": 12
+  },
+  "gpu_nvidia": [
+    {
+      "name": "NVIDIA GeForce RTX 3060",
+      "memoryTotal": "12884901888",
+      "cudaCores": 3584,
+      "architecture": "Ampere"
+    }
+  ],
+  "cudaVersion": "12.2"
+}
