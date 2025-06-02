@@ -327,7 +327,7 @@ class Data_Sorting():
         mani_mode_list=["Sorting","Modifying","Comparing","Classifying","Saliency"]
         mani_mode=mani_mode_list[mode_idx]
         self.selected_path_dict = path_dict[dataset_dict[4]]
-        self.data_folder_path=self.selected_path_dict["lane_following"] 
+        self.data_folder_path=self.selected_path_dict["pullin"] 
         #self.data_folder_path="/media/erik/Linux_Data/eglinton_data_sorting_dual/sorted_eglddinton_data/CIL_Dual_Cam_Stage1/main_filtered"
         print(self.data_folder_path) 
         if not exists(self.data_folder_path):
@@ -412,8 +412,8 @@ class Data_Sorting():
             ]
 
             pt_model_list = [
-                join(script_path, "ivan_model_logs/ppgeo partially frozen gray 0.1/ResNet34PilotNet.pt"),
-                join(script_path, "ivan_model_logs/ppgeo frozen gray 0.1/ResNet34PilotNet.pt"),
+                join(script_path, "ivan_model_logs/ppgeo partially frozen gray full cmd0/ppgeo  partially frozen gray full run1_cmd_0_checkpoint.pt"),
+                join(script_path, "ivan_model_logs/ppgeo partially frozen full cmd1 gray/ResNet34PilotNet.pt"),
                 join(script_path, "ivan_model_logs/ppgeo unfrozen gray 0.1/ResNet34PilotNet.pt"),
                 join(script_path, "ivan_model_logs/imagenet gray 0.1/ResNet34PilotNet.pt"),
                 join(script_path, "ivan_model_logs/ppgeo partially frozen gray 0.3/ResNet34PilotNet.pt"),
@@ -614,7 +614,18 @@ class Data_Sorting():
                     try:
                         #reload the model everytime, and load the saved weights instead of doing at start of script with hard coded model path
                         pt_model = ResNet34PilotNet(use_rgb=False).to(device)
-                        pt_model.load_state_dict(torch.load(pt_model_path, map_location=device))
+
+                        checkpoint = torch.load(pt_model_path, map_location=device)
+
+                        # If checkpoint is a dict with 'model_state_dict' key, assume full checkpoint
+                        #this conditional accounts for if model was saved as just the weights or a full chekcpoint.pt file with the other training info as well
+                        if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
+                            pt_model.load_state_dict(checkpoint['model_state_dict'])
+                            print(f"[INFO] Loaded full checkpoint from {pt_model_path}")
+                        else:
+                            pt_model.load_state_dict(checkpoint)
+                            print(f"[INFO] Loaded raw state_dict from {pt_model_path}")
+
                         pt_model.eval()
                         print(f"[INFO] Switched to PyTorch model {selected_model_idx + 1}: {pt_model_path}")
                     except Exception as e:

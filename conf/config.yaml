@@ -10,7 +10,7 @@ model:
   freeze_encoder: False
   partial_freeze: True
   rgb_input: False
-  name: ResNet34PilotNet #not really used anymore as the wandb name is just used now
+  #name: ResNet34PilotNet #not really used anymore as the wandb name is just used now
   pretrained: True
   trainable: True
   training: True
