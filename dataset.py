@@ -78,20 +78,20 @@ class EGLintonDataset(Dataset):
         else:
             return self.__getitem__(np.random.randint(0, len(self.files)))
 
-        # Augmentation and preprocessing
+        # === Augmentation and precprocessing===
         if self.aug_cfg['augment_data']:
             if np.random.rand() < self.aug_cfg['augment_prob']:
                 image, steering = self.apply_augmentations(image, steering)
 
-            if self.aug_cfg['horizontal_shift'] or self.aug_cfg['horizontal_rotate']:
-                if self.aug_cfg['horizontal_rotate']:
-                    image, steering = self.horizontal_rotate(image, steering, self.aug_cfg['steering_rotate_factor'])
-                else:
-                    image, steering = self.horizontal_shift(image, steering, self.aug_cfg['steering_shift_factor'])
-            else:
-                image = image[:, 40:440]
+        if self.aug_cfg['horizontal_rotate']:
+            image, steering = self.horizontal_rotate(image, steering, self.aug_cfg['steering_rotate_factor'])
+        elif self.aug_cfg['horizontal_shift']:
+            image, steering = self.horizontal_shift(image, steering, self.aug_cfg['steering_shift_factor'])
         else:
-            image = image[:, 40:440]
+            image = image[:, 40:440]  # Only crop if no shift/rotate, just like Eric, bc cropping is done in h shift and rot methods alr
+
+        # === Final standard vertical crop (Eric now does this) ===
+        image = image[60:, :]  # Always crop sky (top 60px) at the end
 
         image = ((image / 127.5) - 1.0).astype(np.float32)
 

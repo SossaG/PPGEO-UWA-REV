@@ -72,7 +72,7 @@ def validate_epoch(model, dataloader, criterion, device, cfg):
 def make_collate_fn(cfg):
     def custom_collate_fn(batch):
         expected_channels = 3 if cfg['model'].get('rgb_input', False) else 1
-        batch = [sample for sample in batch if sample[0].shape == (expected_channels, 240, 400)]
+        batch = [sample for sample in batch if sample[0].shape == (expected_channels, 180, 400)]
 
         if len(batch) == 0:
             # No valid samples, return dummy tensors to avoid crashing

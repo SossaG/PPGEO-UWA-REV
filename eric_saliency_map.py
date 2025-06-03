@@ -50,8 +50,12 @@ pt_model = None
 
 
 def compute_pytorch_saliency(gray):
-    
-    gray = cv2.resize(gray, (400, 240))
+    # === Crop first to match training input ===
+    gray = gray[60:, :]  # Remove sky — top 60px
+
+    # === Then resize (optional, only if needed for display or padding) ===
+    gray = cv2.resize(gray, (400, 180))  # Use 180 to preserve post-crop height
+
     image = np.expand_dims(gray.astype(np.float32) / 255.0, axis=-1)
     transform = transforms.Compose([
         transforms.ToTensor(),
@@ -327,7 +331,7 @@ class Data_Sorting():
         mani_mode_list=["Sorting","Modifying","Comparing","Classifying","Saliency"]
         mani_mode=mani_mode_list[mode_idx]
         self.selected_path_dict = path_dict[dataset_dict[4]]
-        self.data_folder_path=self.selected_path_dict["pullin"] 
+        self.data_folder_path=self.selected_path_dict["lane_following"] 
         #self.data_folder_path="/media/erik/Linux_Data/eglinton_data_sorting_dual/sorted_eglddinton_data/CIL_Dual_Cam_Stage1/main_filtered"
         print(self.data_folder_path) 
         if not exists(self.data_folder_path):
@@ -412,7 +416,7 @@ class Data_Sorting():
             ]
 
             pt_model_list = [
-                join(script_path, "ivan_model_logs/ppgeo partially frozen gray full cmd0/ppgeo  partially frozen gray full run1_cmd_0_checkpoint.pt"),
+                join(script_path, "ivan_model_logs/ppgeo  partially frozen gray full nosky test_cmd_0/ppgeo  partially frozen gray full nosky test_cmd_0_checkpoint.pt"),
                 join(script_path, "ivan_model_logs/ppgeo partially frozen full cmd1 gray/ResNet34PilotNet.pt"),
                 join(script_path, "ivan_model_logs/ppgeo unfrozen gray 0.1/ResNet34PilotNet.pt"),
                 join(script_path, "ivan_model_logs/imagenet gray 0.1/ResNet34PilotNet.pt"),
