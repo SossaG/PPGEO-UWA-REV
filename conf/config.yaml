@@ -1,6 +1,6 @@
 wandb:
   project: eglinton_bus
-  name: ppgeo  partially frozen gray full run1 
+  name: ppgeo  partially frozen gray full nosky
   sync_tensorboard: True
   log_dir: logs
   mode: online
@@ -139,7 +139,7 @@ augmentation:
   noise_range: 0.02
   adjust_brightness: False
   brightness_range: 0.05
-  add_shadow: True
+  add_shadow: False
   shadow_range: 0.1
   horizontal_shift: True
   steering_shift_factor: 0.2
