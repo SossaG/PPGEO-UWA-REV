@@ -67,16 +67,31 @@ class EGLintonDataset(Dataset):
         return len(self.files)
 
     def __getitem__(self, idx):
-        npy = np.load(self.files[idx], allow_pickle=True)
+        offset = -6
+        label_idx = idx + offset  # Frame to get the speed/steer from
 
-        if len(npy) == 10:
-            image, speed, steering = npy[0], npy[8], npy[9]
-        elif len(npy) == 8:
-            image, speed, steering = npy[0], npy[2], npy[3]
-        elif len(npy) == 5:
-            image, speed, steering = npy[0], npy[1], npy[2]
+        # Clamp label_idx to prevent crash
+        if label_idx < 0 or label_idx >= len(self.files):
+            label_idx = idx
+
+        # Load image from current frame
+        curr_data_array = np.load(self.files[idx], allow_pickle=True)
+
+        # Load labels from label_idx frame
+        label_data_array = np.load(self.files[label_idx], allow_pickle=True)
+
+        # Extract image
+        image = curr_data_array[0]
+
+        # Extract speed & steering from the label frame
+        if len(label_data_array) == 10:
+            speed, steering = label_data_array[8], label_data_array[9]
+        elif len(label_data_array) == 8:
+            speed, steering = label_data_array[2], label_data_array[3]
         else:
-            return self.__getitem__(np.random.randint(0, len(self.files)))
+            speed, steering = label_data_array[1], label_data_array[2]
+
+
 
         # === Augmentation and precprocessing===
         if self.aug_cfg['augment_data']:
