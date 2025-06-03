@@ -148,8 +148,7 @@ def main():
     for cmd_key in cmd_keys:
         print(f"\n🔁 Training model for {cmd_key}")
 
-        timestamp = datetime.now().strftime("%Y-%m-%d-%H.%M.%S")
-        model_name = f"{cfg['wandb']['name']}_{cmd_key}_{timestamp}"
+        model_name = f"{cfg['wandb']['name']}_{cmd_key}"
         save_dir = os.path.join(cfg['training']['save_model_dir'], model_name)
         os.makedirs(save_dir, exist_ok=True)
 
