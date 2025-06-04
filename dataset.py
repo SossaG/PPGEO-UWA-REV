@@ -19,8 +19,6 @@ class EGLintonDataset(Dataset):
         self.files = []
         self._populate_files(data_dir)
 
-        # not needed but ensuring that dataset is definately ordered by filename
-        self.files.sort()
 
         train_ratio = cfg['training']['train_ratio']
         valid_ratio = cfg['training']['valid_ratio']
