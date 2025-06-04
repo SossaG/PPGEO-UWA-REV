@@ -121,7 +121,7 @@ def make_collate_fn(cfg):
 
         if len(batch) == 0:
             # No valid samples, return dummy tensors to avoid crashing
-            print("[WARNING] All samples in this batch are invalid. Returning dummy batch.")
+            #print("[WARNING] All samples in this batch are invalid. Returning dummy batch.")
             dummy_img = torch.zeros((1, 240, 400), dtype=torch.float32)
             dummy_speed = torch.zeros((1,), dtype=torch.float32)
             dummy_steer = torch.zeros((1,), dtype=torch.float32)
