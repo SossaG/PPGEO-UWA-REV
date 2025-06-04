@@ -116,10 +116,12 @@ def validate_epoch(model, dataloader, criterion, device, cfg):
 def make_collate_fn(cfg):
     def custom_collate_fn(batch):
         expected_channels = 3 if cfg['model'].get('rgb_input', False) else 1
-        batch = [sample for sample in batch if sample[0].shape == (expected_channels, 180, 400)]
+        batch = [sample for sample in batch if sample is not None and sample[0].shape == (expected_channels, 180, 400)]
+
 
         if len(batch) == 0:
             # No valid samples, return dummy tensors to avoid crashing
+            print("[WARNING] All samples in this batch are invalid. Returning dummy batch.")
             dummy_img = torch.zeros((1, 240, 400), dtype=torch.float32)
             dummy_speed = torch.zeros((1,), dtype=torch.float32)
             dummy_steer = torch.zeros((1,), dtype=torch.float32)
