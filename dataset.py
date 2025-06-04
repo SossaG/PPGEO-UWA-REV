@@ -19,6 +19,9 @@ class EGLintonDataset(Dataset):
         self.files = []
         self._populate_files(data_dir)
 
+        # not needed but ensuring that dataset is definately ordered by filename
+        self.files.sort()
+
         train_ratio = cfg['training']['train_ratio']
         valid_ratio = cfg['training']['valid_ratio']
         test_ratio = 1 - train_ratio - valid_ratio
@@ -26,6 +29,8 @@ class EGLintonDataset(Dataset):
         # Shuffle the dataset file list before slicing (matches Eric's original logic)
         if self.cfg.get('dataset', {}).get('shuffle', False):
             import random  # Added for shuffling support
+            seed = cfg['training']['random_seed']
+            random.seed(seed) 
             random.shuffle(self.files)  # <-- This enables file-level shuffling before split
 
         total_len = len(self.files)
