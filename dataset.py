@@ -69,13 +69,14 @@ class EGLintonDataset(Dataset):
 
         # Get current image file path
         image_path = self.files[idx]
+        dir_name = os.path.dirname(image_path) #so that offsets are only looked for within same folder
         fname = os.path.basename(image_path)
         frame_num = fname.split("_")[1]
         
         # Construct label filename
         label_num = str(int(frame_num) + offset)
         label_fname = fname.replace(frame_num, label_num)
-        label_path = image_path.replace(fname, label_fname)
+        label_path = os.path.join(dir_name, label_fname) # only look within same folder
 
         # Check if label file exists
         if not os.path.exists(label_path):
