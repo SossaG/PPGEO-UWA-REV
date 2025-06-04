@@ -68,17 +68,24 @@ class EGLintonDataset(Dataset):
 
     def __getitem__(self, idx):
         offset = -6
-        label_idx = idx + offset  # Frame to get the speed/steer from
 
-        # Clamp label_idx to prevent crash
-        if label_idx < 0 or label_idx >= len(self.files):
-            label_idx = idx
+        # Get current image file path
+        image_path = self.files[idx]
+        fname = os.path.basename(image_path)
+        frame_num = fname.split("_")[1]
+        
+        # Construct label filename
+        label_num = str(int(frame_num) + offset)
+        label_fname = fname.replace(frame_num, label_num)
+        label_path = image_path.replace(fname, label_fname)
 
-        # Load image from current frame
-        curr_data_array = np.load(self.files[idx], allow_pickle=True)
+        # Check if label file exists
+        if not os.path.exists(label_path):
+            return None  # Will be filtered out in collate_fn
 
-        # Load labels from label_idx frame
-        label_data_array = np.load(self.files[label_idx], allow_pickle=True)
+        # Load image and label
+        curr_data_array = np.load(image_path, allow_pickle=True)
+        label_data_array = np.load(label_path, allow_pickle=True)
 
         # Extract image
         image = curr_data_array[0]
@@ -91,9 +98,7 @@ class EGLintonDataset(Dataset):
         else:
             speed, steering = label_data_array[1], label_data_array[2]
 
-
-
-        # === Augmentation and precprocessing===
+        # === Augmentation & Preprocessing ===
         if self.aug_cfg['augment_data']:
             if np.random.rand() < self.aug_cfg['augment_prob']:
                 image, steering = self.apply_augmentations(image, steering)
@@ -117,9 +122,9 @@ class EGLintonDataset(Dataset):
         else:
             if image.ndim == 2:
                 image = np.expand_dims(image, axis=0)
-        
 
         return torch.tensor(image), torch.tensor([speed], dtype=torch.float32), torch.tensor([steering], dtype=torch.float32)
+
 
     def apply_augmentations(self, image, steering):
         if self.aug_cfg['horizontal_flip'] and np.random.rand() < 0.5:
