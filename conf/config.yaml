@@ -1,6 +1,6 @@
 wandb:
   project: eglinton_bus
-  name: ppgeo partially frozen full nosky or latency run2
+  name: ppgeo partially frozen full nosky or latency run3
   sync_tensorboard: True
   log_dir: logs
   mode: online
