@@ -22,7 +22,6 @@ import sys
 sys.path.append('/workspace/ros_mamba_ws/visionMambaPaper')
 
 from shuttlebusTrain import ViM
-from models_ivan import ResNet34PilotNet
 
 
 bridge = CvBridge()
@@ -60,7 +59,7 @@ class vim_cmd_publisher(Node):
             10)
         self.img_subscription  # prevent unused variable warning
         self.mode_subscription  # prevent unused variable warning
-        self.lane_following_cmd0 = "gray_full_run1_cmd_0_checkpoint.pt"
+        self.lane_following_cmd0 = "vim_shuttle_lane_following.pth"
         self.model_path = os.path.join(Model_Path, self.lane_following_cmd0)
         self.lane_following_cmd1 = "vim_shuttle_pullin.pth"
         self.model_pullin_path = os.path.join(Model_Path, self.lane_following_cmd1)
@@ -69,7 +68,20 @@ class vim_cmd_publisher(Node):
         self.lane_following_cmd3 = "vim_shuttle_lane_following.pth"
         self.model_dual_steering_path = os.path.join(Model_Path, self.lane_following_cmd3)
         # print(sys.path)
-        self.model = ResNet34PilotNet()
+        self.model = ViM(
+            img_size = (160, 320),
+            patch_size = (20, 20), #8, #(11, 10)
+            # stride=(10, 20), #(5, 5),
+            # stride=() # smaller for more detail (5, 5)
+            num_classes = 2,
+            dim = 1024, #1000, #2
+            depth = 8, #24, #4-8
+            channels=1,
+            dropout = 0.1,
+            # emb_dopout = 0.1,
+            embed_dim=512, #48, #512
+            d_state=16, #40, #16
+        )
         # print(self.model)
         self.model_pullin = ViM(
             img_size = (160, 320),
@@ -121,7 +133,7 @@ class vim_cmd_publisher(Node):
         self.driving_mode=0
         self.speed_multi=4.0
         
-        self.model.load_state_dict(torch.load(self.model_path)['model_state_dict'])
+        self.model.load_state_dict(torch.load(self.model_path, weights_only=True)['model_state_dict'])
         self.model_pullin.load_state_dict(torch.load(self.model_pullin_path, weights_only=True)['model_state_dict'])
         self.model_reverse.load_state_dict(torch.load(self.model_reverse_path, weights_only=True)['model_state_dict'])
         self.model_dual_steering.load_state_dict(torch.load(self.model_dual_steering_path, weights_only=True)['model_state_dict'])
@@ -158,26 +170,28 @@ class vim_cmd_publisher(Node):
 
 
     def img_listener_callback(self, msg):
+        #print("Got something!")
+        cv_img = bridge.imgmsg_to_cv2(msg, desired_encoding='passthrough')
+        cv_img_h, cv_img_w = cv_img.shape
+        #print(cv_img.shape)
+        resize_h=int(cv_img_h*0.2)
+        img=cv2.resize(cv_img[resize_h:,:],(480,240))
+        img=img[80:, 80:400]
+        img= np.expand_dims(img, axis=0)
+        img = img.astype('float32')
+        # self.get_logger().info("image shape")
+        # print(img.shape)
+
+        img = appliedTransform(img)
+        img = rearrange(img, 'w c h -> 1 c h w')
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        img = img.to(device)
+        
+        self.cur_img = img
+        speed = 0.0
+        steering_angle = 0.0
 
         if self.driving_mode == 7:
-
-            #print("Got something!")
-            cv_img = bridge.imgmsg_to_cv2(msg, desired_encoding='passthrough')
-            cv_img_h, cv_img_w = cv_img.shape
-            #print(cv_img.shape)
-            #resize_h=int(cv_img_h*0.2) -------------my model doesnt crop sky
-            #img=cv2.resize(cv_img[resize_h:,:],(480,240)) -------------my model doesnt crop sky
-            img = cv2.resize(cv_img, (400, 240))  # Match training shape (not cropping sky)
-            #img=img[80:, 80:400] -----------Kieran had, ivan remove due to no sky cropping
-            img= np.expand_dims(img, axis=0)
-            img = img.astype('float32')
-            # self.get_logger().info("image shape")
-            # print(img.shape)
-
-            img = appliedTransform(img)
-            img = rearrange(img, 'w c h -> 1 c h w')
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            img = img.to(device)
 
             speed, steering_angle = self.model(img)
             speed = speed.item() * self.speed_multi
@@ -185,28 +199,6 @@ class vim_cmd_publisher(Node):
             # print(speed)
             #self.get_logger().info("CV Image resize_h %d" % (resize_h))
             self.get_logger().info(f"speed: {speed}, steering: {steering_angle}")
-        else:
-            #print("Got something!")
-            cv_img = bridge.imgmsg_to_cv2(msg, desired_encoding='passthrough')
-            cv_img_h, cv_img_w = cv_img.shape
-            #print(cv_img.shape)
-            resize_h=int(cv_img_h*0.2)
-            img=cv2.resize(cv_img[resize_h:,:],(480,240))
-            img=img[80:, 80:400]
-            img= np.expand_dims(img, axis=0)
-            img = img.astype('float32')
-            # self.get_logger().info("image shape")
-            # print(img.shape)
-
-            img = appliedTransform(img)
-            img = rearrange(img, 'w c h -> 1 c h w')
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            img = img.to(device)
-            
-            self.cur_img = img
-            speed = 0.0
-            steering_angle = 0.0
-
         if self.driving_mode == 8:
 
             speed, steering_angle = self.model_pullin(img)
