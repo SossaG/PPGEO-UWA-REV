@@ -1,0 +1,15 @@
+{"time":"2025-05-31T02:59:55.698761556+08:00","level":"INFO","msg":"stream: starting","core version":"0.19.10","symlink path":"ivan_model_logs/ResNet34PilotNet_2025-05-31-02.59.46/wandb/run-20250531_025955-nubwpmbs/logs/debug-core.log"}
+{"time":"2025-05-31T02:59:56.17557971+08:00","level":"INFO","msg":"created new stream","id":"nubwpmbs"}
+{"time":"2025-05-31T02:59:56.175609368+08:00","level":"INFO","msg":"stream: started","id":"nubwpmbs"}
+{"time":"2025-05-31T02:59:56.175618059+08:00","level":"INFO","msg":"handler: started","stream_id":"nubwpmbs"}
+{"time":"2025-05-31T02:59:56.175628227+08:00","level":"INFO","msg":"writer: Do: started","stream_id":"nubwpmbs"}
+{"time":"2025-05-31T02:59:56.175676603+08:00","level":"INFO","msg":"sender: started","stream_id":"nubwpmbs"}
+{"time":"2025-05-31T02:59:56.559682177+08:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-05-31T03:00:03.069441513+08:00","level":"INFO","msg":"stream: closing","id":"nubwpmbs"}
+{"time":"2025-05-31T03:00:03.069468429+08:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-05-31T03:00:03.069504191+08:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-05-31T03:00:04.492951642+08:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-05-31T03:00:04.914715865+08:00","level":"INFO","msg":"handler: closed","stream_id":"nubwpmbs"}
+{"time":"2025-05-31T03:00:04.914755762+08:00","level":"INFO","msg":"writer: Close: closed","stream_id":"nubwpmbs"}
+{"time":"2025-05-31T03:00:04.914791765+08:00","level":"INFO","msg":"sender: closed","stream_id":"nubwpmbs"}
+{"time":"2025-05-31T03:00:04.914810309+08:00","level":"INFO","msg":"stream: closed","id":"nubwpmbs"}

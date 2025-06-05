@@ -1,6 +1,6 @@
 wandb:
   project: eglinton_bus
-  name: ppgeo  partially frozen gray 0.1 run1  # fixed to avoid ${model.name} error
+  name: ppgeo partially frozen full nosky or latency run3
   sync_tensorboard: True
   log_dir: logs
   mode: online
@@ -10,7 +10,7 @@ model:
   freeze_encoder: False
   partial_freeze: True
   rgb_input: False
-  name: ResNet34PilotNet
+  #name: ResNet34PilotNet #not really used anymore as the wandb name is just used now
   pretrained: True
   trainable: True
   training: True
@@ -27,21 +27,21 @@ training:
   epochs: 10
   batch_size: 4
   random_seed: 42
-  shuffle: True
+  shuffle: True 
   load_checkpoint: False
-  save_model_dir: "saved_models_logs"
+  save_model_dir: "ivan_model_logs"
   checkpoint_lr: 0
   train_ratio: 0.8
   valid_ratio: 0.2
-  train_coeff: 0.1
-  valid_coeff: 0.1
+  train_coeff: 1
+  valid_coeff: 1
   test_coeff: 1
   callbacks:
     - type: ModelCheckpoint
-      filepath: ResNet34PilotNet.pt  # fixed extension
+      # filepath: checkpoint.pt -----dont use rn, dont need and cba
       monitor: val_loss
       mode: min
-      save_best_only: True
+      save_best_only: True #dont imp yet
       save_freq: epoch
       verbose: 0
     - type: EarlyStopping
@@ -139,7 +139,7 @@ augmentation:
   noise_range: 0.02
   adjust_brightness: False
   brightness_range: 0.05
-  add_shadow: True
+  add_shadow: False
   shadow_range: 0.1
   horizontal_shift: True
   steering_shift_factor: 0.2

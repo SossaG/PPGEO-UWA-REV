@@ -6,9 +6,10 @@ from torch.utils.data import Dataset
 import cv2
 
 class EGLintonDataset(Dataset):
-    def __init__(self, cfg, subset='train'):
+    def __init__(self, cfg, subset='train', cmd_key='cmd_0'):
         self.cfg = cfg
         self.subset = subset
+        self.cmd_key = cmd_key
 
         data_dir = os.path.join(os.path.dirname(__file__), cfg['dataset']['sorted_data_path'])
         self.dataset_idx_list = cfg['dataset']['dataset_idx_list']
@@ -18,14 +19,10 @@ class EGLintonDataset(Dataset):
         self.files = []
         self._populate_files(data_dir)
 
+
         train_ratio = cfg['training']['train_ratio']
         valid_ratio = cfg['training']['valid_ratio']
         test_ratio = 1 - train_ratio - valid_ratio
-
-        # Shuffle the dataset file list before slicing (matches Eric's original logic)
-        if self.cfg.get('dataset', {}).get('shuffle', False):
-            import random  # Added for shuffling support
-            random.shuffle(self.files)  # <-- This enables file-level shuffling before split
 
         total_len = len(self.files)
 
@@ -50,47 +47,68 @@ class EGLintonDataset(Dataset):
     def _populate_files(self, base_path):
         for idx in self.dataset_idx_list:
             base_folder = os.path.join(base_path, self.dataset_mapping[idx])
-            for cmd_key, cmd_spec in self.behavior_lists.items():
-                if cmd_key == 'main':
+            cmd_spec = self.behavior_lists[self.cmd_key]
+            behavior_list = cmd_spec['list']
+            for behavior in behavior_list:
+                behavior_path = os.path.join(base_folder, behavior)
+                if not os.path.exists(behavior_path):
                     continue
-                for behavior in cmd_spec['list']:
-                    behavior_path = os.path.join(base_folder, behavior)
-                    if not os.path.exists(behavior_path):
-                        continue
-                    for root, _, files in os.walk(behavior_path):
-                        for f in files:
-                            if f.endswith('.npy'):
-                                self.files.append(os.path.join(root, f))
+                for root, _, files in os.walk(behavior_path):
+                    for f in files:
+                        if f.endswith('.npy'):
+                            self.files.append(os.path.join(root, f))
+
 
     def __len__(self):
         return len(self.files)
 
     def __getitem__(self, idx):
-        npy = np.load(self.files[idx], allow_pickle=True)
+        offset = -6
 
-        if len(npy) == 10:
-            image, speed, steering = npy[0], npy[8], npy[9]
-        elif len(npy) == 8:
-            image, speed, steering = npy[0], npy[2], npy[3]
-        elif len(npy) == 5:
-            image, speed, steering = npy[0], npy[1], npy[2]
+        # Get current image file path
+        image_path = self.files[idx]
+        dir_name = os.path.dirname(image_path) #so that offsets are only looked for within same folder
+        fname = os.path.basename(image_path)
+        frame_num = fname.split("_")[1]
+        
+        # Construct label filename
+        label_num = str(int(frame_num) + offset)
+        label_fname = fname.replace(frame_num, label_num)
+        label_path = os.path.join(dir_name, label_fname) # only look within same folder
+
+        # Check if label file exists
+        if not os.path.exists(label_path):
+            return None  # Will be filtered out in collate_fn
+
+        # Load image and label
+        curr_data_array = np.load(image_path, allow_pickle=True)
+        label_data_array = np.load(label_path, allow_pickle=True)
+
+        # Extract image
+        image = curr_data_array[0]
+
+        # Extract speed & steering from the label frame
+        if len(label_data_array) == 10:
+            speed, steering = label_data_array[8], label_data_array[9]
+        elif len(label_data_array) == 8:
+            speed, steering = label_data_array[2], label_data_array[3]
         else:
-            return self.__getitem__(np.random.randint(0, len(self.files)))
+            speed, steering = label_data_array[1], label_data_array[2]
 
-        # Augmentation and preprocessing
+        # === Augmentation & Preprocessing ===
         if self.aug_cfg['augment_data']:
             if np.random.rand() < self.aug_cfg['augment_prob']:
                 image, steering = self.apply_augmentations(image, steering)
 
-            if self.aug_cfg['horizontal_shift'] or self.aug_cfg['horizontal_rotate']:
-                if self.aug_cfg['horizontal_rotate']:
-                    image, steering = self.horizontal_rotate(image, steering, self.aug_cfg['steering_rotate_factor'])
-                else:
-                    image, steering = self.horizontal_shift(image, steering, self.aug_cfg['steering_shift_factor'])
-            else:
-                image = image[:, 40:440]
+        if self.aug_cfg['horizontal_rotate']:
+            image, steering = self.horizontal_rotate(image, steering, self.aug_cfg['steering_rotate_factor'])
+        elif self.aug_cfg['horizontal_shift']:
+            image, steering = self.horizontal_shift(image, steering, self.aug_cfg['steering_shift_factor'])
         else:
-            image = image[:, 40:440]
+            image = image[:, 40:440]  # Only crop if no shift/rotate, just like Eric, bc cropping is done in h shift and rot methods alr
+
+        # === Final standard vertical crop (Eric now does this) ===
+        image = image[60:, :]  # Always crop sky (top 60px) at the end
 
         image = ((image / 127.5) - 1.0).astype(np.float32)
 
@@ -101,9 +119,9 @@ class EGLintonDataset(Dataset):
         else:
             if image.ndim == 2:
                 image = np.expand_dims(image, axis=0)
-        
 
         return torch.tensor(image), torch.tensor([speed], dtype=torch.float32), torch.tensor([steering], dtype=torch.float32)
+
 
     def apply_augmentations(self, image, steering):
         if self.aug_cfg['horizontal_flip'] and np.random.rand() < 0.5:
