@@ -95,6 +95,9 @@ class EGLintonDataset(Dataset):
         else:
             speed, steering = label_data_array[1], label_data_array[2]
 
+        if speed > 1.0:
+            print(f"warning: Speed {speed} greater than 5.4 m/s.")
+
         # === Augmentation & Preprocessing ===
         if self.aug_cfg['augment_data']:
             if np.random.rand() < self.aug_cfg['augment_prob']:
