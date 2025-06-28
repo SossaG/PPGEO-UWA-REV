@@ -1,4 +1,3 @@
-#from kierans private github in vmamba
 import torch
 from torch import nn
 from functools import partial
@@ -8,7 +7,7 @@ from PIL import Image
 
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
-from model import VSSM, SS2D
+from models_ivan import ResNet34PilotNet
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -253,12 +252,12 @@ if __name__ == "__main__":
     lr = 1e-4 #1e-4
     weight_decay = 0.05
     gamma = 0.01
-    batch_size = 160
+    batch_size = 150
     best_loss = 1000000
     Speed_scale = 1.0
     Steering_Angle_scale = 1.0
 
-    model_path_name = "VMamba_shuttle_lane_following_7_0.0005_0.7383_0.7762.pth"
+    model_path_name = "resnet34.ckpt"
     checkpoint = None
 
     
@@ -270,56 +269,33 @@ if __name__ == "__main__":
     parser.add_argument("--fine_tune_model", action="store_true")
     parser.add_argument("model_type", default="lane_following", type=str, nargs='?')
 
-    model = VMamba(
-            patch_size=(20, 20), 
-            in_chans=1, 
-            num_classes=200, 
-            depths=[3, 4], 
-            dims=[256, 512], 
-            # =========================
-            ssm_d_state=32,
-            ssm_ratio=2.0,
-            ssm_dt_rank="auto",
-            ssm_act_layer="gelu",        
-            ssm_conv=3,
-            ssm_conv_bias=True,
-            ssm_drop_rate=0.2, 
-            ssm_init="v0",
-            forward_type="v02",
-            # =========================
-            mlp_ratio=4.0,
-            mlp_act_layer="gelu",
-            mlp_drop_rate=0.2,
-            gmlp=False,
-            # =========================
-            drop_path_rate=0.2, 
-            patch_norm=True, 
-            norm_layer="LN", # "BN", "LN2D"
-            downsample_version = "v2", # "v1", "v2", "v3"
-            patchembed_version = "v1", # "v1", "v2"
-            use_checkpoint=False,  
-            # =========================
-            posembed=False,
-            imgsize=(320, 160),
-            _SS2D=SS2D,
-            # =========================
-            device="cuda"
-        )
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu") #K adds this in model class definition so I will just add here
+    model = ResNet34PilotNet(use_rgb=False).to(device) #manually set rgb to false for now since currently dont think ill ever need it
+
 
     args = parser.parse_args()
 
     if args.load_model:
-        print("loading model")
-        checkpoint = torch.load(model_path_name, weights_only=True)
-        
-        model.load_state_dict(checkpoint['model_state_dict'])
+        print("🟢 Using PPGeo pretrained ResNet-34 encoder")
+        ppgeo_ckpt = torch.load('resnet34.ckpt', map_location='cpu')
+        state_dict = ppgeo_ckpt['state_dict']
+        state_dict = {k: v for k, v in state_dict.items() if not k.startswith('fc.')}
+
+        # ——— GRAYSCALE ADAPTATION & WEIGHT LOADING ———
+        # if doing true-grayscale fine-tuning, average the pretrained RGB conv1 → 1-channel
+        # checkpoint has "conv1.weight": torch.Size([64,3,7,7])
+        w3 = state_dict['conv1.weight']                # [64,3,7,7]
+        state_dict['conv1.weight'] = w3.mean(1, keepdim=True)  # → [64,1,7,7] 
+        # now load everything (conv1 will match or be ignored)  
+        model.backbone.load_state_dict(state_dict, strict=False)
+
     elif args.fine_tune_model:
         print("fine tuning model")
         checkpoint = torch.load(model_path_name, weights_only=True)
         model.load_state_dict(checkpoint['model_state_dict'])
 
     
-    summary(model, (1, 160, 320))
+    #summary(model, (1, 160, 320)) commenting out for now as it may cause errors from dimension mismatches with kierans
 
     Images_All_Straight = []
     Speeds_All_Straight = []
