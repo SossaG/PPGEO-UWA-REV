@@ -7,7 +7,7 @@ from PIL import Image
 
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
-
+from models_ivan import ResNet34PilotNet
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -146,7 +146,7 @@ if __name__ == "__main__":
     Speed_scale = 1.0
     Steering_Angle_scale = 1.0
 
-    model_path_name = "resnet34.ckpt"
+    model_path_name = "resnet34.ckpt" #if loading model from checkpoint, chnage to the name of your checkpoint file
     checkpoint = None
 
     
@@ -157,29 +157,41 @@ if __name__ == "__main__":
     parser.add_argument("--load_model", action="store_true")
     parser.add_argument("--fine_tune_model", action="store_true")
     parser.add_argument("model_type", default="lane_following", type=str, nargs='?')
+    parser.add_argument("pretrain_type", type=str, default="imagenet", help="imagenet or ppgeo")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu") #K adds this in model class definition so I will just add here
-    model = ResNet34PilotNet(use_rgb=False).to(device) #manually set rgb to false for now since currently dont think ill ever need it
-
+    
 
     args = parser.parse_args()
 
-    if args.load_model:
-        print("🟢 Using PPGeo pretrained ResNet-34 encoder")
-        ppgeo_ckpt = torch.load('resnet34.ckpt', map_location='cpu')
-        state_dict = ppgeo_ckpt['state_dict']
-        state_dict = {k: v for k, v in state_dict.items() if not k.startswith('fc.')}
+    if args.fine_tune_model:
+        
+        if args.pretrain_type == "ppgeo":
+            print("🟢 Fine tuning PPGeo pretrained ResNet-34 encoder")
+            model = ResNet34PilotNet(use_rgb=False).to(device) #manually set rgb to false for now since currently dont think ill ever need it
+            ppgeo_ckpt = torch.load('resnet34.ckpt', map_location='cpu')
+            state_dict = ppgeo_ckpt['state_dict']
+            state_dict = {k: v for k, v in state_dict.items() if not k.startswith('fc.')}
 
-        # ——— GRAYSCALE ADAPTATION & WEIGHT LOADING ———
-        # if doing true-grayscale fine-tuning, average the pretrained RGB conv1 → 1-channel
-        # checkpoint has "conv1.weight": torch.Size([64,3,7,7])
-        w3 = state_dict['conv1.weight']                # [64,3,7,7]
-        state_dict['conv1.weight'] = w3.mean(1, keepdim=True)  # → [64,1,7,7] 
-        # now load everything (conv1 will match or be ignored)  
-        model.backbone.load_state_dict(state_dict, strict=False)
+            # ——— GRAYSCALE ADAPTATION & WEIGHT LOADING ———
+            # if doing true-grayscale fine-tuning, average the pretrained RGB conv1 → 1-channel
+            # checkpoint has "conv1.weight": torch.Size([64,3,7,7])
+            w3 = state_dict['conv1.weight']                # [64,3,7,7]
+            state_dict['conv1.weight'] = w3.mean(1, keepdim=True)  # → [64,1,7,7] 
+            # now load everything (conv1 will match or be ignored)  
+            model.backbone.load_state_dict(state_dict, strict=False)
+        elif args.pretrain_type == "imagenet":
+            print("🟢 Fine tuning ImageNet pretrained ResNet-34 encoder")
+            model = ResNet34PilotNet(pretrained=True).to(device)
+            # ——— GRAYSCALE ADAPTER for ImageNet ———
+            # model.backbone.conv1.weight is [64,3,7,7] → average to [64,1,7,7]
+            w3 = model.backbone.conv1.weight.data         # [64,3,7,7]
+            w1 = w3.mean(1, keepdim=True)                # [64,1,7,7]
+            model.backbone.conv1.weight.data.copy_(w1)
 
-    elif args.fine_tune_model:
-        print("fine tuning model")
+    elif args.load_model:
+        print(f"continuing training {model_path_name} from checkpoint")
+        model = ResNet34PilotNet().to(device)
         checkpoint = torch.load(model_path_name, weights_only=True)
         model.load_state_dict(checkpoint['model_state_dict'])
 
@@ -197,6 +209,8 @@ if __name__ == "__main__":
     Images_All = []
     Speeds_All = []
     Steering_Angles_All = []
+
+    pretrain_type = args.pretrain_type
 
     if args.fine_tune_model:
         model_name = args.model_type + '_finetune'
@@ -519,7 +533,7 @@ if __name__ == "__main__":
         if best_loss > total_epoch_loss:
             best_loss = total_epoch_loss
 
-            save_name = f"VMamba_shuttle_{model_name}_{epoch+1}_{total_epoch_loss:.4f}_{total_epoch_accuracy1:.4f}_{total_epoch_accuracy2:.4f}.pth"
+            save_name = f"ResNet34_shuttle_{pretrain_type}_{model_name}_{epoch+1}_{total_epoch_loss:.4f}_{total_epoch_accuracy1:.4f}_{total_epoch_accuracy2:.4f}.pth"
 
             torch.save({
                 'epoch': epoch,
@@ -541,6 +555,6 @@ if __name__ == "__main__":
 
     print(f'training finished at: {end_time}')
 
-    torch.save(model.state_dict(), f'VMamba_shuttlebus_{model_name}.pth')
+    torch.save(model.state_dict(), f'ResNet34_shuttlebus_{pretrain_type}_{model_name}.pth')
     writer.flush()
     writer.close()
