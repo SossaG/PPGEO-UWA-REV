@@ -158,6 +158,8 @@ if __name__ == "__main__":
     parser.add_argument("--fine_tune_model", action="store_true")
     parser.add_argument("model_type", default="lane_following", type=str, nargs='?')
     parser.add_argument("pretrain_type", type=str, default="imagenet", help="imagenet or ppgeo")
+    parser.add_argument("dataset_prop", type=float, default=1.0, help="Proportion of full dataset to use for training/val/test split")
+
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu") #K adds this in model class definition so I will just add here
     
@@ -211,6 +213,7 @@ if __name__ == "__main__":
     Steering_Angles_All = []
 
     pretrain_type = args.pretrain_type
+    dataset_prop = args.dataset_prop
 
     if args.fine_tune_model:
         model_name = args.model_type + '_finetune'
@@ -378,7 +381,7 @@ if __name__ == "__main__":
             print((len(temp_search)/len(All_Searchable_Folders))*100)
             
 
-            Split_a = train_test_split(Images_All, Speeds_All, Steering_Angles_All, test_size=0.1, shuffle=True)
+            Split_a = train_test_split(Images_All, Speeds_All, Steering_Angles_All, test_size= 1 - dataset_prop, shuffle=True)
             (Images, Image_Test, Speeds, Speed_Test, Steering_Angles, Steering_Angle_Test) = Split_a   
             Split_b = train_test_split(Images, Speeds, Steering_Angles, test_size=0.2, shuffle=True)
             (Image_Train, Image_Valid, Speed_Train, Speed_Valid, Steering_Angle_Train, Steering_Angle_Valid) = Split_b
@@ -535,7 +538,7 @@ if __name__ == "__main__":
         if best_loss > total_epoch_loss:
             best_loss = total_epoch_loss
 
-            save_name = f"ResNet34_shuttle_{pretrain_type}_{model_name}_{epoch+1}_{total_epoch_loss:.4f}_{total_epoch_accuracy1:.4f}_{total_epoch_accuracy2:.4f}.pth"
+            save_name = f"ResNet34_shuttle_{pretrain_type}_{model_name}_{dataset_prop}_{epoch+1}_{total_epoch_loss:.4f}_{total_epoch_accuracy1:.4f}_{total_epoch_accuracy2:.4f}.pth"
 
             torch.save({
                 'epoch': epoch,
@@ -557,6 +560,6 @@ if __name__ == "__main__":
 
     print(f'training finished at: {end_time}')
 
-    torch.save(model.state_dict(), f'ResNet34_shuttlebus_{pretrain_type}_{model_name}.pth')
+    torch.save(model.state_dict(), f'ResNet34_shuttlebus_{pretrain_type}_{model_name_}_{dataset_prop}.pth')
     writer.flush()
     writer.close()
