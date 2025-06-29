@@ -29,7 +29,7 @@ import random
 
 import yaml
 
-writer = SummaryWriter()
+
 
 Images_All = []
 Speeds_All = []
@@ -217,6 +217,8 @@ if __name__ == "__main__":
     else:
         model_name = args.model_type
     print(model_name)
+    
+    writer = SummaryWriter(log_dir=f"runs/{pretrain_type}_{model_name}")
 
     if args.fine_tune_model:
         lane_follow_files = [
