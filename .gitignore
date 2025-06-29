@@ -20,3 +20,6 @@ venv/
 
 # System files
 Thumbs.db
+
+runs/
+
