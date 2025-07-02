@@ -70,14 +70,27 @@ class EGLintonDataset(Dataset):
     def __getitem__(self, idx):
         npy = np.load(self.files[idx], allow_pickle=True)
 
-        if len(npy) == 10:
-            image, speed, steering = npy[0], npy[8], npy[9]
-        elif len(npy) == 8:
-            image, speed, steering = npy[0], npy[2], npy[3]
-        elif len(npy) == 5:
-            image, speed, steering = npy[0], npy[1], npy[2]
+        # === Extract inputs ===
+        image = npy[0]
+
+        # Use modified commands if present, otherwise fallback to original ones
+        if len(npy) >= 10 and npy[8] is not None and npy[9] is not None:
+            speed = npy[8]  # modified_linear
+            steering = npy[9]  # modified_angular
         else:
-            return self.__getitem__(np.random.randint(0, len(self.files)))
+            speed = npy[2]  # original linear
+            steering = npy[3]  # original angular
+
+        # === clamping ===
+        if speed > 1.0:
+            speed = 1.0
+        elif speed < -1.0:
+            speed = -1.0
+        if steering > 1.0:
+            steering = 1.0
+        elif steering < -1.0:
+            steering = -1.0
+
 
         # === Augmentation and precprocessing===
         if self.aug_cfg['augment_data']:

@@ -115,8 +115,10 @@ def validate_epoch(model, dataloader, criterion, device, cfg):
 # === Custom collate function for error handling ===
 def make_collate_fn(cfg):
     def custom_collate_fn(batch):
+        # First remove None samples safely
+        batch = [sample for sample in batch if sample is not None]
         expected_channels = 3 if cfg['model'].get('rgb_input', False) else 1
-        batch = [sample for sample in batch if sample is not None and sample[0].shape == (expected_channels, 180, 400)]
+        batch = [sample for sample in batch if sample[0].shape == (expected_channels, 180, 400)]
 
 
         if len(batch) == 0:

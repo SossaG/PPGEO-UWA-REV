@@ -1,6 +1,6 @@
 wandb:
   project: eglinton_bus
-  name: ppgeo partially frozen test run1
+  name: ppgeo partially frozen run1
   sync_tensorboard: True
   log_dir: logs
   mode: online
@@ -33,8 +33,8 @@ training:
   checkpoint_lr: 0
   train_ratio: 0.8
   valid_ratio: 0.2
-  train_coeff: 0.05
-  valid_coeff: 0.05
+  train_coeff: 1
+  valid_coeff: 1
   test_coeff: 1
   callbacks:
     - type: ModelCheckpoint
