@@ -1,4 +1,5 @@
 
+
 import os
 import numpy as np
 import torch
@@ -19,10 +20,14 @@ class EGLintonDataset(Dataset):
         self.files = []
         self._populate_files(data_dir)
 
-
         train_ratio = cfg['training']['train_ratio']
         valid_ratio = cfg['training']['valid_ratio']
         test_ratio = 1 - train_ratio - valid_ratio
+
+        # Shuffle the dataset file list before slicing (matches Eric's original logic)
+        if self.cfg.get('dataset', {}).get('shuffle', False):
+            import random  # Added for shuffling support
+            random.shuffle(self.files)  # <-- This enables file-level shuffling before split
 
         total_len = len(self.files)
 
@@ -63,42 +68,18 @@ class EGLintonDataset(Dataset):
         return len(self.files)
 
     def __getitem__(self, idx):
-        offset = -6
+        npy = np.load(self.files[idx], allow_pickle=True)
 
-        # Get current image file path
-        image_path = self.files[idx]
-        dir_name = os.path.dirname(image_path) #so that offsets are only looked for within same folder
-        fname = os.path.basename(image_path)
-        frame_num = fname.split("_")[1]
-        
-        # Construct label filename
-        label_num = str(int(frame_num) + offset)
-        label_fname = fname.replace(frame_num, label_num)
-        label_path = os.path.join(dir_name, label_fname) # only look within same folder
-
-        # Check if label file exists
-        if not os.path.exists(label_path):
-            return None  # Will be filtered out in collate_fn
-
-        # Load image and label
-        curr_data_array = np.load(image_path, allow_pickle=True)
-        label_data_array = np.load(label_path, allow_pickle=True)
-
-        # Extract image
-        image = curr_data_array[0]
-
-        # Extract speed & steering from the label frame
-        if len(label_data_array) == 10:
-            speed, steering = label_data_array[8], label_data_array[9]
-        elif len(label_data_array) == 8:
-            speed, steering = label_data_array[2], label_data_array[3]
+        if len(npy) == 10:
+            image, speed, steering = npy[0], npy[8], npy[9]
+        elif len(npy) == 8:
+            image, speed, steering = npy[0], npy[2], npy[3]
+        elif len(npy) == 5:
+            image, speed, steering = npy[0], npy[1], npy[2]
         else:
-            speed, steering = label_data_array[1], label_data_array[2]
+            return self.__getitem__(np.random.randint(0, len(self.files)))
 
-        if speed > 1.0:
-            print(f"warning: Speed {speed} greater than 5.4 m/s.")
-
-        # === Augmentation & Preprocessing ===
+        # === Augmentation and precprocessing===
         if self.aug_cfg['augment_data']:
             if np.random.rand() < self.aug_cfg['augment_prob']:
                 image, steering = self.apply_augmentations(image, steering)
@@ -122,9 +103,9 @@ class EGLintonDataset(Dataset):
         else:
             if image.ndim == 2:
                 image = np.expand_dims(image, axis=0)
+        
 
         return torch.tensor(image), torch.tensor([speed], dtype=torch.float32), torch.tensor([steering], dtype=torch.float32)
-
 
     def apply_augmentations(self, image, steering):
         if self.aug_cfg['horizontal_flip'] and np.random.rand() < 0.5:
