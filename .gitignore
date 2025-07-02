@@ -21,5 +21,7 @@ venv/
 # System files
 Thumbs.db
 
+# model logs
 runs/
+ivan_model_logs/
 
