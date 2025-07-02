@@ -73,28 +73,16 @@ def load_latest_data(Search_Folder):
     # print(Search_Folder[0].split("_")[-6])
     # print(Search_Folder[1].split("_")[-6])
     
-    try:
-        if(int(Search_Folder[1].split("_")[-6]) - int(Search_Folder[0].split("_")[-6]) != 6):
-            # print(int(Search_Folder[1].split("_")[-6]) - int(Search_Folder[0].split("_")[-6]))
-            return
-    except:
-        return
-    try:
-        data = np.load(Search_Folder[1], allow_pickle=True)
-        past_data = np.load(Search_Folder[0], allow_pickle=True)
-    except EOFError:
-        return
-    except:
-        # print("skipping file in {}: {}", Search_Folder, Files)
-        return
+    data = np.load(Search_Folder[0], allow_pickle=True)
+
 
     img = data[0]
-    if len(past_data) == 8:
-        Speed, Steering_Angle = past_data[2], past_data[3]
-    elif len(past_data) == 10:
-        Speed, Steering_Angle = past_data[8], past_data[9]
+    if len(data) == 8:
+        Speed, Steering_Angle = data[2], data[3]
+    elif len(data) == 10:
+        Speed, Steering_Angle = data[8], data[9]
     else:
-        Speed, Steering_Angle = past_data[1], past_data[2]
+        Speed, Steering_Angle = data[1], data[2]
 
     # add image shifting here
     offset = 0
@@ -126,16 +114,14 @@ def load_latest_data(Search_Folder):
             # print(Files)
             return
     except:
-        print(Speed)
+        """print(Speed)
         print(Steering_Angle)
         print(img)
-        print(Search_Folder)
+        print(Search_Folder)"""
 
     Images_All.append(img)
     Speeds_All.append(Speed)
-    Steering_Angles_All.append(Steering_Angle)
-
-    
+    Steering_Angles_All.append(Steering_Angle)  
 
 if __name__ == "__main__":
     lr = 1e-4 #1e-4
@@ -295,9 +281,11 @@ if __name__ == "__main__":
     else:
         model_files = reverse_files
 
-    Base_Path = dirname("/home/quirky/Documents/eglinton_datasorting_dual/sorted_eglinton_data/")
-
+    Base_Path = dirname("/media/sim/data/eglinton_datasorting_dual/sorted_eglinton_data/")
+    
+    
     for Folders in os.listdir(Base_Path):
+        
         Sorted_Folder_Path = join(Base_Path, Folders)
         for Folder in os.listdir(Sorted_Folder_Path):
             for name in model_files:
@@ -309,20 +297,29 @@ if __name__ == "__main__":
             for Folders in os.listdir(Image_Path):
                 Search_Folder = join(Image_Path, Folders)
                 i = 0
-                past_data.clear()
-                for file in sorted(os.listdir(Search_Folder), key=lambda x: int(x.split("_")[1])):
-                    past_data.append(file)
-                    i += 1
-                    if len(past_data) < 6:
-                        continue
-                    else:
-                        All_Searchable_Folders.append([join(Search_Folder, past_data[i + offset]), \
-                                                   join(Search_Folder, file)])
+                files = sorted(
+                    [f for f in os.listdir(Search_Folder) if f.endswith(".npy")],
+                    key=lambda x: int(x.split("_")[1])
+                )
+
+                if len(files) == 0:
+                    print(f"⛔ No .npy files in {Search_Folder}")
+                    continue
+
+                for file in files:
+                    All_Searchable_Folders.append([
+                        join(Search_Folder, file),
+                        join(Search_Folder, file)
+                    ])
+
+                
         else:
             print('[Error!] Check Image Directory is Correct!')
             sys.exit()
 
     random.shuffle(All_Searchable_Folders)
+    print(f"📊 Total sample pairs found: {len(All_Searchable_Folders)}")
+
 
 
     # criterion = nn.MSELoss()
@@ -358,6 +355,8 @@ if __name__ == "__main__":
         total_epoch_val_accuracy1 = 0
         total_epoch_val_accuracy2 = 0
         temp_search = All_Searchable_Folders.copy()
+        
+
         train_len = 0
         val_len = 0
         batch = 0
@@ -380,6 +379,13 @@ if __name__ == "__main__":
             # print(len(Images_All))
             print((len(temp_search)/len(All_Searchable_Folders))*100)
             
+            print("before------------------------")
+            print(f"🧪 Length of Images_All: {len(Images_All)}")
+            print(f"🧪 Length of Speeds_All: {len(Speeds_All)}")
+            print(f"🧪 Length of Steering_Angles_All: {len(Steering_Angles_All)}")
+            if len(Images_All) == 0:
+                print("❌ No data loaded — skipping this batch")
+                continue  # skip this loop if no data loaded
 
             Split_a = train_test_split(Images_All, Speeds_All, Steering_Angles_All, test_size= 1 - dataset_prop, shuffle=True)
             (Images, Image_Test, Speeds, Speed_Test, Steering_Angles, Steering_Angle_Test) = Split_a   
@@ -389,6 +395,10 @@ if __name__ == "__main__":
             train_data = dataset(Image_Train, Speed_Train, Steering_Angle_Train, transform=transform)
             test_data = dataset(Image_Test, Speed_Test, Steering_Angle_Test, transform=transform)
             val_data = dataset(Image_Valid, Speed_Valid, Steering_Angle_Valid, transform=transform)
+
+            print(f"🔹 Training samples: {len(Image_Train)}")
+            print(f"🔹 Validation samples: {len(Image_Valid)}")
+
 
             train_loader = torch.utils.data.DataLoader(
                 dataset=train_data, batch_size=batch_size, shuffle=False
@@ -560,6 +570,6 @@ if __name__ == "__main__":
 
     print(f'training finished at: {end_time}')
 
-    torch.save(model.state_dict(), f'ResNet34_shuttlebus_{pretrain_type}_{model_name_}_{dataset_prop}.pth')
+    torch.save(model.state_dict(), f'ResNet34_shuttlebus_{pretrain_type}_{model_name}_{dataset_prop}.pth')
     writer.flush()
     writer.close()

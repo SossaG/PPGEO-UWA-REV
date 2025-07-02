@@ -423,7 +423,7 @@ class Data_Sorting():
                 join(script_path, "ivan_model_logs/imagenet gray 0.1/ResNet34PilotNet.pt"),
                 join(script_path, "ivan_model_logs/ppgeo partially frozen gray 0.3/ResNet34PilotNet.pt"),
                 join(script_path, "ivan_model_logs/ppgeo  partially frozen gray full nosky or latency_cmd_0/ppgeo  partially frozen gray full nosky or latency_cmd_0_checkpoint.pt"),
-                
+                join(script_path, "ivan_model_logs/imagenet gray full nosky or latency_cmd_0/imagenet gray full nosky or latency_cmd_0_checkpoint.pt"),
             ] 
 
             # --- Define score function for the selected output ---
@@ -608,7 +608,7 @@ class Data_Sorting():
 
                 #dynamically loading (ivan) different models similar to how eric does so with key input
                 if key == ord('0') and mani_mode == "Saliency":
-                    
+
                     pt_idx +=1
 
 
