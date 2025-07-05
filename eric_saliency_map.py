@@ -424,6 +424,7 @@ class Data_Sorting():
                 join(script_path, "ivan_model_logs/ppgeo partially frozen gray 0.3/ResNet34PilotNet.pt"),
                 join(script_path, "ivan_model_logs/ppgeo  partially frozen gray full nosky or latency_cmd_0/ppgeo  partially frozen gray full nosky or latency_cmd_0_checkpoint.pt"),
                 join(script_path, "ivan_model_logs/imagenet gray full nosky or latency_cmd_0/imagenet gray full nosky or latency_cmd_0_checkpoint.pt"),
+                join(script_path, "ivan_model_logs/ppgeo partially frozen run1_cmd_0_checkpoint.pt"),
             ] 
 
             # --- Define score function for the selected output ---
@@ -468,7 +469,7 @@ class Data_Sorting():
             while move_file:
                 start_time = time.time()
                 (img_front, img_rear, linear, angular, driving_mode, gear, speed_mode, orien, map_pose, 
-                 modified_linear, modified_angular, file) = self.extract_npy_data(modified_linear, modified_angular)
+                 modified_linear, modified_angular, scene_category, file) = self.extract_npy_data(modified_linear, modified_angular)
                 if mani_mode=="Comparing":
                     image=img_front
                     img_input = np.expand_dims(image, axis=0).astype('float32')
@@ -554,12 +555,24 @@ class Data_Sorting():
                     #i now replicate what eric did with his output visualisation onto a new image
                     text_nn_mode = f"state {state} nn_sp: {round(nn_linear, 3)} nn_ag: {round(nn_angular, 3)}" 
                     text_nn_mode2 = f"ivan: pt_sp: {round(pt_speed, 3)} pt_ag: {round(pt_angle, 3)}" 
+                    """if modified_linear != None and modified_angular != None:
+                        text_gt_mode2= f"gt_sp: {round(modified_linear, 3)} gt_ag: {round(modified_angular, 3)}"
+                    else:"""
+                    text_gt_mode2 = f"gt_sp: {round(linear, 3)} gt_ag: {round(angular, 3)}"
                     img_front_=self.text_on_image(img_front_, text_nn_mode , (50,280))
-                    img_front_2=self.text_on_image(img_front_2, text_nn_mode2 , (50,280))
+                    img_front_2=self.text_on_image(img_front_2, text_nn_mode2 , (50,250))
+                    img_front_2=self.text_on_image(img_front_2, text_gt_mode2 , (50,280))
                     end_point=(tuple(map(lambda x, y: round(x) - round(y), START_POINT, (LINE_MAX_LEN*nn_linear*np.sin(LINE_MAX_ANGLE*nn_angular),LINE_MAX_LEN*nn_linear*np.cos(LINE_MAX_ANGLE*nn_angular)))))
                     end_point2=(tuple(map(lambda x, y: round(x) - round(y), START_POINT, (LINE_MAX_LEN*pt_speed*np.sin(LINE_MAX_ANGLE*pt_angle),LINE_MAX_LEN*pt_speed*np.cos(LINE_MAX_ANGLE*pt_angle)))))
+                    end_point3=(tuple(map(lambda x, y: round(x) - round(y), START_POINT, (LINE_MAX_LEN*linear*np.sin(LINE_MAX_ANGLE*angular),LINE_MAX_LEN*linear*np.cos(LINE_MAX_ANGLE*angular)))))
                     img_front_=self.line_on_image(img_front_, START_POINT, end_point)
                     img_front_2=self.line_on_image(img_front_2, START_POINT, end_point2)
+                    overlay = img_front_2.copy()
+                    cv2.line(overlay, START_POINT, end_point3, (0, 255, 0), thickness=4)  # Green in BGR
+                    img_front_2 = cv2.addWeighted(overlay, 0.5, img_front_2, 0.5, 0)  # 0.5 alpha blend
+
+
+
 
                 else:
                     text_mode = f"sp: {round(linear, 3)} ag: {round(angular, 3)}"
@@ -840,10 +853,18 @@ class Data_Sorting():
         file_path=join(self.folder_path, file)
         data_array = np.load(file_path, allow_pickle=True)
         img_front, img_rear, linear, angular, driving_mode, gear, speed_mode, map_pos_orien, linear2, angular2 = [None]*10
+        scene_category = 0
         if len(data_array)==10:
             img_front, img_rear, linear, angular, driving_mode, gear, speed_mode, map_pos_orien, linear2, angular2 = data_array
             if self.keep_value: 
                 modified_linear, modified_angular = linear2, angular2
+        elif len(data_array)==11:
+            img_front, img_rear, linear, angular, driving_mode, gear, speed_mode, map_pos_orien, linear2, angular2, scene_category = data_array
+            if self.keep_value: 
+                if linear2 is None or angular2 is None:
+                    modified_linear, modified_angular = linear, angular
+                else:
+                    modified_linear, modified_angular = linear2, angular2
         else:
             if len(data_array)==3: 
                 img_front, linear, angular = data_array
@@ -869,8 +890,7 @@ class Data_Sorting():
             tree_y = self.cp_xy_cords[1] + delta_y
             #print("tree_x: ",tree_x,"tree_y: ",tree_y)
             map_pose=(round(tree_x*MAP_RESOLUTION),MAP_HEIGHT_PIX-round(tree_y*MAP_RESOLUTION))
-        return img_front, img_rear, linear, angular, driving_mode, gear, speed_mode, orien, map_pose, modified_linear, modified_angular, file
-
+        return img_front, img_rear, linear, angular, driving_mode, gear, speed_mode, orien, map_pose, modified_linear, modified_angular,scene_category, file
     def Stops_Auto_Sorting(self):
         Stage2_Path=join(sorted_data_path, "CIL_Dual_Cam_Stage2_B")
         for Behavior_Folder_Name in os.listdir(Stage2_Path):
