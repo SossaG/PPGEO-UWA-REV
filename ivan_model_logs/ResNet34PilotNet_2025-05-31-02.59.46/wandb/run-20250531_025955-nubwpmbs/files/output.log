@@ -1,8 +1,0 @@
-Traceback (most recent call last):
-  File "train.py", line 255, in <module>
-    main()
-  File "train.py", line 218, in main
-    train_loss, train_loss_steering, train_loss_speed = train_epoch(model, train_loader, optimizer, criterion, device,cfg)
-  File "train.py", line 42, in train_epoch
-    total_loss += loss.item()
-KeyboardInterrupt
