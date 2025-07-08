@@ -73,15 +73,15 @@ def load_latest_data(Search_Folder):
     # print(Search_Folder[0].split("_")[-6])
     # print(Search_Folder[1].split("_")[-6])
     
-    try:
-        if(int(Search_Folder[1].split("_")[-6]) - int(Search_Folder[0].split("_")[-6]) != 6):
-            # print(int(Search_Folder[1].split("_")[-6]) - int(Search_Folder[0].split("_")[-6]))
-            return
-    except:
-        return
+    # try:
+    #     if(int(Search_Folder[1].split("_")[-6]) - int(Search_Folder[0].split("_")[-6]) != 6):
+    #         # print(int(Search_Folder[1].split("_")[-6]) - int(Search_Folder[0].split("_")[-6]))
+    #         return
+    # except:
+    #     return
     try:
         data = np.load(Search_Folder[1], allow_pickle=True)
-        past_data = np.load(Search_Folder[0], allow_pickle=True)
+        # past_data = np.load(Search_Folder[0], allow_pickle=True)
     except EOFError:
         return
     except:
@@ -89,34 +89,37 @@ def load_latest_data(Search_Folder):
         return
 
     img = data[0]
+
     if data[8] is None or data[9] is None:
         speed, steering = data[2], data[3]
     else:
         speed, steering = data[8], data[9]
 
     # add image shifting here
-    offset = 0
-    mean = 80
-    std_dev = 30
+    # offset = 0
+    # mean = 80
+    # std_dev = 30
 
-    while True:
-        offset = np.random.normal(loc=mean, scale=std_dev)
-        if 0 <= offset <= 160:
-            offset = int(round(offset))
-            break
+    # while True:
+    #     offset = np.random.normal(loc=mean, scale=std_dev)
+    #     if 0 <= offset <= 160:
+    #         offset = int(round(offset))
+    #         break
     
-    # offset = np.random.randint(0, 160)
+    offset = np.random.randint(0, 80)
 
     #check for model type training
     
-    img = img[80:, 0 + offset:320 + offset]
-    Steering_Angle = Steering_Angle - ((80-offset)/80)*0.2
+    img = img[60:, 0 + offset:400 + offset]
+    steering = steering - ((40-offset)/40)*0.2
     img = Image.fromarray(np.uint8(img), mode='L')
+    # print(f"✔️ Loaded sample: img={img.size}, speed={speed:.3f}, steering={steering:.3f}")
+
     try:
-        if Speed == None:
+        if speed == None:
             # print(join(Search_Folder, Files))
             return
-        if Steering_Angle == None:
+        if steering == None:
             # print(join(Search_Folder, Files))
             return
         if img == None:
@@ -124,18 +127,21 @@ def load_latest_data(Search_Folder):
             # print(Files)
             return
     except:
-        print(Speed)
-        print(Steering_Angle)
+        print(speed)
+        print(steering)
         print(img)
         print(Search_Folder)
 
     Images_All.append(img)
-    Speeds_All.append(Speed)
-    Steering_Angles_All.append(Steering_Angle)
+    Speeds_All.append(speed)
+    Steering_Angles_All.append(steering)
 
     
 
 if __name__ == "__main__":
+
+
+
     lr = 1e-4 #1e-4
     weight_decay = 0.05
     gamma = 0.01
@@ -161,6 +167,9 @@ if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu") #K adds this in model class definition so I will just add here
     
+    print("✅ Using device:", device)
+    if torch.cuda.is_available():
+        print("🖥️  CUDA device name:", torch.cuda.get_device_name(0))
 
     args = parser.parse_args()
 
@@ -293,7 +302,8 @@ if __name__ == "__main__":
     else:
         model_files = reverse_files
 
-    Base_Path = dirname("/media/sim/data/eglinton_datasorting_dual/sorted_eglinton_data/")
+    Base_Path = "/media/sim/data/eglinton_datasorting_dual/sorted_eglinton_data"
+
 
     for Folders in os.listdir(Base_Path):
         Sorted_Folder_Path = join(Base_Path, Folders)
@@ -321,6 +331,8 @@ if __name__ == "__main__":
             sys.exit()
 
     random.shuffle(All_Searchable_Folders)
+    subset_len = int(len(All_Searchable_Folders) * dataset_prop)
+    All_Searchable_Folders = All_Searchable_Folders[:subset_len] #for dataset proportion
 
 
     # criterion = nn.MSELoss()
@@ -356,6 +368,7 @@ if __name__ == "__main__":
         total_epoch_val_accuracy1 = 0
         total_epoch_val_accuracy2 = 0
         temp_search = All_Searchable_Folders.copy()
+        print(f"length of temp_search: {len(temp_search)}")
         train_len = 0
         val_len = 0
         batch = 0
@@ -367,21 +380,30 @@ if __name__ == "__main__":
             epoch_accuracy1 = 0
             epoch_accuracy2 = 0
 
-            while (len(Images_All) < 15000) and len(temp_search) != 0:
-                current_folder = temp_search.pop()
+            max_samples = min(15000, len(All_Searchable_Folders) * 2)  
+            print(f"Pre-loading: temp_search has {len(temp_search)} folders before sampling")
 
+            while (len(Images_All) < max_samples) and len(temp_search) != 0:
+                
+                current_folder = temp_search.pop()
                 load_latest_data(current_folder)
             
                 # print(len(Images_All))
             # print(len(temp_search))
             # print(len(All_Searchable_Folders))
             # print(len(Images_All))
+
+            print(f"📉 Post-loading: {len(temp_search)} folders left after loading {len(Images_All)} samples")
+
             print((len(temp_search)/len(All_Searchable_Folders))*100)
             
-            test_prop = 1 - dataset_prop
-            print(f" test_prop: {test_prop}")
 
-            Split_a = train_test_split(Images_All, Speeds_All, Steering_Angles_All, test_size= 0.8, shuffle=True)
+            print(f" Total Searchable Folders: {len(All_Searchable_Folders)}")
+            print(f" Current batch folder count: {len(temp_search)}")
+            print(f" Images_All: {len(Images_All)}, 🚗 Speeds_All: {len(Speeds_All)},  Steering_Angles_All: {len(Steering_Angles_All)}")
+
+
+            Split_a = train_test_split(Images_All, Speeds_All, Steering_Angles_All, test_size= 0.2, shuffle=True)
             (Images, Image_Test, Speeds, Speed_Test, Steering_Angles, Steering_Angle_Test) = Split_a   
             Split_b = train_test_split(Images, Speeds, Steering_Angles, test_size=0.2, shuffle=True)
             (Image_Train, Image_Valid, Speed_Train, Speed_Valid, Steering_Angle_Train, Steering_Angle_Valid) = Split_b
@@ -426,6 +448,9 @@ if __name__ == "__main__":
 
 
                 output1, output2 = model(data)
+                
+                output1 = output1.squeeze()  # [N, 1] → [N]
+                output2 = output2.squeeze()
                 loss1 = criterion(output1, label1)
                 loss2 = criterion(output2, label2)
 
@@ -479,6 +504,8 @@ if __name__ == "__main__":
 
                     val_output1, val_output2 = model(data)
 
+                    val_output1 = val_output1.squeeze()  # [N, 1] → [N]
+                    val_output2 = val_output2.squeeze()
                     
                     val_loss1 = criterion(val_output1, label1)
                     val_loss2 = criterion(val_output2, label2)
@@ -535,7 +562,7 @@ if __name__ == "__main__":
             )
         )
 
-        if best_loss > total_epoch_loss:
+        """if best_loss > total_epoch_loss:
             best_loss = total_epoch_loss
 
             save_name = f"ResNet34_shuttle_{pretrain_type}_{model_name}_{dataset_prop}_{epoch+1}_{total_epoch_loss:.4f}_{total_epoch_accuracy1:.4f}_{total_epoch_accuracy2:.4f}.pth"
@@ -545,7 +572,7 @@ if __name__ == "__main__":
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'loss': total_epoch_loss
-            }, save_name)
+            }, save_name)"""
 
         scheduler.step(total_epoch_val_loss)
 
@@ -560,6 +587,6 @@ if __name__ == "__main__":
 
     print(f'training finished at: {end_time}')
 
-    torch.save(model.state_dict(), f'ResNet34_shuttlebus_{pretrain_type}_{model_name_}_{dataset_prop}.pth')
+    torch.save(model.state_dict(), f'ResNet34_shuttlebus_{pretrain_type}_{model_name}_{dataset_prop}.pth')
     writer.flush()
     writer.close()
