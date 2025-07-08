@@ -1,14 +1,14 @@
 wandb:
   project: eglinton_bus
-  name: ppgeo partially frozen run1
+  name: Imagenet run1
   sync_tensorboard: True
   log_dir: logs
   mode: online
 
 model:
-  use_ppgeo_pretrained_encoder: True
+  use_ppgeo_pretrained_encoder: False
   freeze_encoder: False
-  partial_freeze: True
+  partial_freeze: False
   rgb_input: False
   #name: ResNet34PilotNet #not really used anymore as the wandb name is just used now
   pretrained: True
@@ -23,7 +23,7 @@ model:
     metrics: ['mae', 'mae']
 
 training:
-  cmd_list: ["cmd_0"]
+  cmd_list: ["cmd_0", "cmd_1"]
   epochs: 10
   batch_size: 4
   random_seed: 42

@@ -163,6 +163,9 @@ if __name__ == "__main__":
     parser.add_argument("model_type", default="lane_following", type=str, nargs='?')
     parser.add_argument("pretrain_type", type=str, default="imagenet", help="imagenet or ppgeo")
     parser.add_argument("dataset_prop", type=float, default=1.0, help="Proportion of full dataset to use for training/val/test split")
+    parser.add_argument("--freeze_mode", type=str, choices=["frozen", "unfrozen", "partial"], default="unfrozen",
+                    help="Control freezing of encoder: frozen, unfrozen, or partial")
+
 
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu") #K adds this in model class definition so I will just add here
@@ -176,11 +179,23 @@ if __name__ == "__main__":
     if args.fine_tune_model:
         
         if args.pretrain_type == "ppgeo":
-            print("🟢 Fine tuning PPGeo pretrained ResNet-34 encoder")
+            print(" Fine tuning PPGeo pretrained ResNet-34 encoder")
             model = ResNet34PilotNet(use_rgb=False).to(device) #manually set rgb to false for now since currently dont think ill ever need it
             ppgeo_ckpt = torch.load('resnet34.ckpt', map_location='cpu')
             state_dict = ppgeo_ckpt['state_dict']
             state_dict = {k: v for k, v in state_dict.items() if not k.startswith('fc.')}
+
+            # ===  Freeze Modes ===
+            if args.freeze_mode == "frozen":
+                print(' Freezing encoder weights')
+                for param in model.backbone.parameters():
+                    param.requires_grad = False
+            elif args.freeze_mode == "partial":
+                # freeze all but conv1 and layer1
+                print('Partially Freezing encoder weights')
+                for name, p in model.backbone.named_parameters():
+                    if not (name.startswith('conv1') or name.startswith('layer1')):
+                        p.requires_grad = False
 
             # ——— GRAYSCALE ADAPTATION & WEIGHT LOADING ———
             # if doing true-grayscale fine-tuning, average the pretrained RGB conv1 → 1-channel
@@ -189,6 +204,7 @@ if __name__ == "__main__":
             state_dict['conv1.weight'] = w3.mean(1, keepdim=True)  # → [64,1,7,7] 
             # now load everything (conv1 will match or be ignored)  
             model.backbone.load_state_dict(state_dict, strict=False)
+
         elif args.pretrain_type == "imagenet":
             print("🟢 Fine tuning ImageNet pretrained ResNet-34 encoder")
             model = ResNet34PilotNet(pretrained=True).to(device)
@@ -221,6 +237,7 @@ if __name__ == "__main__":
 
     pretrain_type = args.pretrain_type
     dataset_prop = args.dataset_prop
+    freeze_mode = args.freeze_mode
 
     if args.fine_tune_model:
         model_name = args.model_type + '_finetune'
@@ -228,7 +245,7 @@ if __name__ == "__main__":
         model_name = args.model_type
     print(model_name)
     
-    writer = SummaryWriter(log_dir=f"runs/{pretrain_type}_{model_name}")
+    writer = SummaryWriter(log_dir=f"runs/{pretrain_type}_{freeze_mode}_{model_name}_{dataset_prop}")
 
     if args.fine_tune_model:
         lane_follow_files = [
@@ -561,18 +578,22 @@ if __name__ == "__main__":
                 epoch + 1, total_epoch_val_accuracy1, total_epoch_val_accuracy2, total_epoch_val_loss
             )
         )
+        #save in an organised folder of checkpoints for that run
+        checkpoint_dir = f"checkpoints/{pretrain_type}_{freeze_mode}_{model_name}_{dataset_prop}"
+        os.makedirs(checkpoint_dir, exist_ok=True)
 
-        """if best_loss > total_epoch_loss:
+        if best_loss > total_epoch_loss:
             best_loss = total_epoch_loss
 
-            save_name = f"ResNet34_shuttle_{pretrain_type}_{model_name}_{dataset_prop}_{epoch+1}_{total_epoch_loss:.4f}_{total_epoch_accuracy1:.4f}_{total_epoch_accuracy2:.4f}.pth"
+            save_name = f"ResNet34_shuttle_{pretrain_type}_{freeze_mode}_{model_name}_{dataset_prop}_{epoch+1}_{total_epoch_loss:.4f}_{total_epoch_accuracy1:.4f}_{total_epoch_accuracy2:.4f}.pth"
+            save_path = os.path.join(checkpoint_dir, save_name)
 
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'loss': total_epoch_loss
-            }, save_name)"""
+            }, save_path)
 
         scheduler.step(total_epoch_val_loss)
 
@@ -587,6 +608,6 @@ if __name__ == "__main__":
 
     print(f'training finished at: {end_time}')
 
-    torch.save(model.state_dict(), f'ResNet34_shuttlebus_{pretrain_type}_{model_name}_{dataset_prop}.pth')
+    torch.save(model.state_dict(), f'ResNet34_shuttlebus_{pretrain_type}_{freeze_mode}_{model_name}_{dataset_prop}.pth')
     writer.flush()
     writer.close()
