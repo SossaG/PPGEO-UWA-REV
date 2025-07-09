@@ -25,3 +25,7 @@ Thumbs.db
 runs/
 ivan_model_logs/
 
+#models
+checkpoints/
+finished_models/
+

@@ -608,6 +608,8 @@ if __name__ == "__main__":
 
     print(f'training finished at: {end_time}')
 
-    torch.save(model.state_dict(), f'ResNet34_shuttlebus_{pretrain_type}_{freeze_mode}_{model_name}_{dataset_prop}.pth')
+
+
+    torch.save(model.state_dict(), f'finished_models/ResNet34_shuttlebus_{pretrain_type}_{freeze_mode}_{model_name}_{dataset_prop}.pth')
     writer.flush()
     writer.close()
