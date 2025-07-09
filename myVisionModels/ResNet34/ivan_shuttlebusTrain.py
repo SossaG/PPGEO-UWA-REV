@@ -158,14 +158,14 @@ if __name__ == "__main__":
         config_yaml = yaml.safe_load(file)
 
     parser = argparse.ArgumentParser("Load model from checkpoint")
+    parser.add_argument("pretrain_type", type=str, default="imagenet", help="imagenet or ppgeo")
+    parser.add_argument("freeze_mode", type=str, choices=["frozen", "unfrozen", "partial"], default="unfrozen",
+                    help="Control freezing of encoder: frozen, unfrozen, or partial")
+    parser.add_argument("model_type", default="lane_following", type=str, nargs='?')
+    parser.add_argument("dataset_prop", type=float, default=1.0, help="Proportion of full dataset to use for training/val/test split")    
     parser.add_argument("--load_model", action="store_true")
     parser.add_argument("--fine_tune_model", action="store_true")
-    parser.add_argument("model_type", default="lane_following", type=str, nargs='?')
-    parser.add_argument("pretrain_type", type=str, default="imagenet", help="imagenet or ppgeo")
-    parser.add_argument("dataset_prop", type=float, default=1.0, help="Proportion of full dataset to use for training/val/test split")
-    parser.add_argument("--freeze_mode", type=str, choices=["frozen", "unfrozen", "partial"], default="unfrozen",
-                    help="Control freezing of encoder: frozen, unfrozen, or partial")
-
+    
 
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu") #K adds this in model class definition so I will just add here
