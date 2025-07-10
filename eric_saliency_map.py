@@ -51,17 +51,12 @@ pt_idx = 0
 
 
 def compute_pytorch_saliency(gray):
-    # === Crop first to match training input ===
-    gray = gray[60:, :]  # Remove sky — top 60px
-
-    # === Then resize (optional, only if needed for display or padding) ===
-    gray = cv2.resize(gray, (400, 180))  # Use 180 to preserve post-crop height
+    #new input alignment to match Kieran training
+    gray = gray[60:, 0:400]
 
     image = np.expand_dims(gray.astype(np.float32) / 255.0, axis=-1)
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.5], std=[0.5])
-    ])
+    # NEW (match training)
+    transform = transforms.ToTensor()
 
     input_tensor = transform(image).unsqueeze(0).to(device)
     input_tensor.requires_grad_()
@@ -425,6 +420,12 @@ class Data_Sorting():
                 join(script_path, "ivan_model_logs/ppgeo  partially frozen gray full nosky or latency_cmd_0/ppgeo  partially frozen gray full nosky or latency_cmd_0_checkpoint.pt"),
                 join(script_path, "ivan_model_logs/imagenet gray full nosky or latency_cmd_0/imagenet gray full nosky or latency_cmd_0_checkpoint.pt"),
                 join(script_path, "ivan_model_logs/ppgeo partially frozen run1_cmd_0_checkpoint.pt"),
+                join(script_path, "ivan_model_logs/ppgeo frozen run1_cmd_0_checkpoint.pt"),
+                join(script_path, "ivan_model_logs/ppgeo unfrozen run1_cmd_0_checkpoint.pt"),
+                join(script_path, "ivan_model_logs/Imagenet run1_cmd_0_checkpoint.pt"),
+                join(script_path, "ivan_model_logs/ResNet34_shuttlebus_imagenet_lane_following_finetune_1.0.pth"),
+                join(script_path, "ivan_model_logs/ResNet34_shuttle_ppgeo_frozen_lane_following_finetune_1.0_20_0.0011_0.5594_0.4411.pth"),
+                
             ] 
 
             # --- Define score function for the selected output ---
