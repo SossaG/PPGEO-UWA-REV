@@ -7,7 +7,8 @@ from PIL import Image
 
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
-from shuttlebusTrain import VMamba, SS2D
+from models_ivan import ResNet34PilotNet
+
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -47,65 +48,34 @@ if __name__ == "__main__":
     #load image
     parser = argparse.ArgumentParser("Load model from checkpoint")
     parser.add_argument("--load_model", action="store_true")
-    parser.add_argument("model_name", default="VMamba_shuttle_lane_following_12_0.0003_0.9397_0.9555.pth", type=str, nargs='?')
-    parser.add_argument("model_fine_name", default="VMamba_shuttle_lane_following_finetune_7_0.0003_0.9266_0.8902.pth", type=str, nargs='?')
+    parser.add_argument("model_name", default="finished_models/ResNet34_shuttlebus_imagenet_lane_following_finetune_1.0.pth", type=str, nargs='?')
+    """parser.add_argument("model_fine_name", default="VMamba_shuttle_lane_following_finetune_7_0.0003_0.9266_0.8902.pth", type=str, nargs='?')
     parser.add_argument("model_pullin_name", default="VMamba_shuttle_pullin_11_0.0003_0.9749_0.9469.pth", type=str, nargs='?')
     parser.add_argument("model_reverse_name", default="VMamba_shuttle_reverse_11_0.0002_0.9605_0.9967.pth", type=str, nargs='?')
-    parser.add_argument("model_type", default="lane_following", type=str, nargs='?')
+    parser.add_argument("model_type", default="lane_following", type=str, nargs='?')"""
 
     args = parser.parse_args()
 
     print(args.model_name)
-    print(args.model_type)
+    #print(args.model_type)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(device)
 
-    torch.manual_seed(1234)
+    """torch.manual_seed(1234)
     if device == "cuda":
-        torch.cuda.manual_seed_all(1234)
+        torch.cuda.manual_seed_all(1234)"""
 
-    model = VMamba(
-            patch_size=(20, 20), 
-            in_chans=1, 
-            num_classes=200, 
-            depths=[3, 4], 
-            dims=[256, 512], 
-            # =========================
-            ssm_d_state=32,
-            ssm_ratio=2.0,
-            ssm_dt_rank="auto",
-            ssm_act_layer="gelu",        
-            ssm_conv=3,
-            ssm_conv_bias=True,
-            ssm_drop_rate=0.0, 
-            ssm_init="v0",
-            forward_type="v02",
-            # =========================
-            mlp_ratio=4.0,
-            mlp_act_layer="gelu",
-            mlp_drop_rate=0.0,
-            gmlp=False,
-            # =========================
-            drop_path_rate=0.0, 
-            patch_norm=True, 
-            norm_layer="LN", # "BN", "LN2D"
-            downsample_version = "v2", # "v1", "v2", "v3"
-            patchembed_version = "v1", # "v1", "v2"
-            use_checkpoint=False,  
-            # =========================
-            posembed=False,
-            imgsize=(320, 160),
-            _SS2D=SS2D,
-            # =========================
-            device="cuda"
-        )
+    model = ResNet34PilotNet()
+    #model.load_state_dict(torch.load(args.model_name)['model_state_dict']) --not using a checkpoint dict file yet, so will replace code for now with the following
+    state_dict = torch.load(args.model_name)
+    model.load_state_dict(state_dict)
 
-    model.load_state_dict(torch.load(args.model_name, weights_only=True)['model_state_dict'])
 
     model.eval()
     model.to(device)
 
-    model_fine = VMamba(
+    """model_fine = VMamba(
             patch_size=(20, 20), 
             in_chans=1, 
             num_classes=200, 
@@ -226,15 +196,19 @@ if __name__ == "__main__":
     model_reverse.load_state_dict(torch.load(args.model_reverse_name, weights_only=True)['model_state_dict'])
 
     model_reverse.eval()
-    model_reverse.to(device)
+    model_reverse.to(device)"""
 
-    model_name = args.model_type
+    #model_name = args.model_type --hard code for now
+    model_name = "lane_following"
+
 
 
     Image_Paths = []
     All_Searchable_Folders = []
 
-    All_Searchable_Folders = [dirname("/home/quirky/Documents/eglinton_datasorting_dual/sorted_eglinton_data/CIL_Dual_Cam_Stage1/bad_gps_manual_sorting_needed/")]
+    All_Searchable_Folders = [dirname("/media/sim/data/eglinton_datasorting_dual/sorted_eglinton_data/CIL_Dual_Cam_Stage2_First_Half/lane_following/rosbag2_2024_08_06-13_57_16_0_44841-45131")]
+
+    
 
     
     current_file = 0
@@ -264,13 +238,13 @@ if __name__ == "__main__":
         except:
             continue
 
-        if len(data) == 8:
-            img, Speed, Steering_Angle = data[0], data[2], data[3]
-        elif len(data) == 10:
-            # img, Speed, Steering_Angle = data[0], data[8], data[9]
-            img, Speed, Steering_Angle = data[0], data[2], data[3]
+
+        img = data[0]
+
+        if data[8] is None or data[9] is None:
+            Speed, Steering_Angle = data[2], data[3]
         else:
-            img, Speed, Steering_Angle = data[0], data[1], data[2]
+            Speed, Steering_Angle = data[8], data[9]
 
         cropped_img = img[80:, 80:400]
         cropped_img = Image.fromarray(np.uint8(cropped_img), mode='L')
@@ -287,14 +261,14 @@ if __name__ == "__main__":
         if current_model == 0:
             output1, output2 = model(cropped_img)
 
-        elif current_model == 1:
+        """elif current_model == 1:
             output1, output2 = model_fine(cropped_img)
  
         elif current_model == 2:
             output1, output2 = model_pullin(cropped_img)
 
         else:
-            output1, output2 = model_reverse(cropped_img)
+            output1, output2 = model_reverse(cropped_img)"""
 
         output1 = output1 * 5.4
         output2 = output2 * 0.3
@@ -351,7 +325,7 @@ if __name__ == "__main__":
                 # Backward pass: compute gradients of output w.r.t. input image
                 model.zero_grad()
                 target.backward()
-            elif current_model == 1:
+            """elif current_model == 1:
                 saliency_output1, saliency_output2 = model_fine(input_tensor)
                 target = saliency_output1[0, 0] if saliency_output1.dim() == 2 else saliency_output1.squeeze()
 
@@ -371,7 +345,7 @@ if __name__ == "__main__":
 
                 # Backward pass: compute gradients of output w.r.t. input image
                 model_reverse.zero_grad()
-                target.backward()
+                target.backward()"""
             saliency = input_tensor.grad.data.abs().squeeze(0).squeeze(0).cpu()   # shape: (3, 224, 224)
 
             # Original image: resized to match input shape and normalized back to [0, 1]
@@ -406,6 +380,7 @@ if __name__ == "__main__":
             # # plt.show()
             # plt.pause(0.001)
             k = cv2.waitKey(0)
+            print(k)
 
         if k == 113:
             cv2.destroyAllWindows()
