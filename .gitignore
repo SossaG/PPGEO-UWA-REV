@@ -29,6 +29,10 @@ ivan_model_logs/
 checkpoints/
 finished_models/
 
-#ppgeo dataset
-ppgeo_dataset/
+#ppgeo_dataset
+downloads/
+extracted_frames/
+converted_dataset/
+yt_cache/
+
 
