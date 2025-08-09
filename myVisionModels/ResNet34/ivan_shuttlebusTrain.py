@@ -150,7 +150,7 @@ if __name__ == "__main__":
     Speed_scale = 1.0
     Steering_Angle_scale = 1.0
 
-    model_path_name = "resnet34.ckpt" #if loading model from checkpoint, chnage to the name of your checkpoint file
+    model_path_name = "example.ckpt" #if loading model from checkpoint, put the model path name here
     checkpoint = None
 
     
@@ -158,7 +158,7 @@ if __name__ == "__main__":
         config_yaml = yaml.safe_load(file)
 
     parser = argparse.ArgumentParser("Load model from checkpoint")
-    parser.add_argument("pretrain_type", type=str, default="imagenet", help="imagenet or ppgeo")
+    parser.add_argument("pretrain_type", type=str, default="imagenet", help="iimagenet, ppgeo, or custom_ppgeo")
     parser.add_argument("freeze_mode", type=str, choices=["frozen", "unfrozen", "partial"], default="unfrozen",
                     help="Control freezing of encoder: frozen, unfrozen, or partial")
     parser.add_argument("model_type", default="lane_following", type=str, nargs='?')
@@ -205,6 +205,38 @@ if __name__ == "__main__":
             # now load everything (conv1 will match or be ignored)  
             model.backbone.load_state_dict(state_dict, strict=False)
 
+        elif args.pretrain_type == "custom_ppgeo":
+            print(" Fine tuning  Custom PPGeo pretrained ResNet-34 encoder")
+            model = ResNet34PilotNet(use_rgb=False).to(device) #manually set rgb to false for now since currently dont think ill ever need it
+            ppgeo_ckpt = torch.load('epoch=19-last-custom-ppgeo-trial1-stripped.ckpt', map_location='cpu') #already stripped and removed prefixes in the strip_custom_model.pu
+            state_dict = ppgeo_ckpt['state_dict'] if 'state_dict' in ppgeo_ckpt else ppgeo_ckpt
+            state_dict = {k: v for k, v in state_dict.items() if not k.startswith('fc.')}# Drop fc layer weights (we use our own head for downstream)
+            
+
+            # ===  Freeze Modes ===
+            if args.freeze_mode == "frozen":
+                print(' Freezing encoder weights')
+                for param in model.backbone.parameters():
+                    param.requires_grad = False
+            elif args.freeze_mode == "partial":
+                # freeze all but conv1 and layer1
+                print('Partially Freezing encoder weights')
+                for name, p in model.backbone.named_parameters():
+                    if not (name.startswith('conv1') or name.startswith('layer1')):
+                        p.requires_grad = False
+
+            # ——— GRAYSCALE ADAPTATION & WEIGHT LOADING ———
+            # if doing true-grayscale fine-tuning, average the pretrained RGB conv1 → 1-channel
+            # checkpoint has "conv1.weight": torch.Size([64,3,7,7])
+            w3 = state_dict['conv1.weight']                # [64,3,7,7]
+            state_dict['conv1.weight'] = w3.mean(1, keepdim=True)  # → [64,1,7,7] 
+            # now load everything (conv1 will match or be ignored)  
+            model.backbone.load_state_dict(state_dict, strict=False)
+
+        
+
+
+
         elif args.pretrain_type == "imagenet":
             print("🟢 Fine tuning ImageNet pretrained ResNet-34 encoder")
             model = ResNet34PilotNet(pretrained=True).to(device)
@@ -213,6 +245,8 @@ if __name__ == "__main__":
             w3 = model.backbone.conv1.weight.data         # [64,3,7,7]
             w1 = w3.mean(1, keepdim=True)                # [64,1,7,7]
             model.backbone.conv1.weight.data.copy_(w1)
+
+        
 
     elif args.load_model:
         print(f"continuing training {model_path_name} from checkpoint")

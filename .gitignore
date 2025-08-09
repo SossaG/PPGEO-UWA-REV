@@ -39,5 +39,8 @@ log/
 #all subfolders inside PPGeo folder
 PPGeo/**/
 
+#model files are too biug to push so will ignore
+*.ckpt
 
 
+ppgeo_dataset/PPGeo/data
