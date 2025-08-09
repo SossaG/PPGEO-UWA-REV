@@ -12,7 +12,7 @@ RESIZE = (320, 160)
 def process_image(in_path, out_path):
     img = Image.open(in_path).convert("L")
     img = img.convert("RGB")
-    img = img.resize((320, 160))  # match PPGeo expected size exactly
+    img = img.resize((320, 160), resample=Image.LANCZOS) #high qual downsampling
     out_path.parent.mkdir(parents=True, exist_ok=True)
     img.save(out_path)
 
