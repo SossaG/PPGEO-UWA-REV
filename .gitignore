@@ -34,5 +34,10 @@ downloads/
 extracted_frames/
 converted_dataset/
 yt_cache/
+data/
+log/
+#all subfolders inside PPGeo folder
+PPGeo/**/
+
 
 
