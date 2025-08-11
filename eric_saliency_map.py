@@ -425,6 +425,13 @@ class Data_Sorting():
                 join(script_path, "ivan_model_logs/Imagenet run1_cmd_0_checkpoint.pt"),
                 join(script_path, "ivan_model_logs/ResNet34_shuttlebus_imagenet_lane_following_finetune_1.0.pth"),
                 join(script_path, "ivan_model_logs/ResNet34_shuttle_ppgeo_frozen_lane_following_finetune_1.0_20_0.0011_0.5594_0.4411.pth"),
+                join(script_path, "ivan_model_logs/ResNet34_shuttlebus_ppgeo_frozen_lane_following_finetune_1.0.pth"),
+                join(script_path, "ivan_model_logs/ResNet34_shuttlebus_ppgeo_unfrozen_lane_following_finetune_1.0.pth"),
+                join(script_path, "ivan_model_logs/ResNet34_shuttle_ppgeo_partial_lane_following_finetune_1.0_20_0.0008_0.6077_0.5733.pth"),
+                join(script_path, "ivan_model_logs/ResNet34_shuttlebus_ppgeo_partial_lane_following_finetune_1.0.pth"),
+                join(script_path, "ivan_model_logs/ResNet34_shuttlebus_custom_ppgeo_unfrozen_lane_following_finetune_1.0.pth"),
+                join(script_path, "ivan_model_logs/ResNet34_shuttle_custom_ppgeo_unfrozen_lane_following_finetune_1.0_11_0.0004_0.8800_0.8175.pth"),
+                join(script_path, "ivan_model_logs/ResNet34_shuttle_custom_ppgeo_unfrozen_lane_following_finetune_1.0_3_0.0007_0.6817_0.6540.pth")
                 
             ] 
 
