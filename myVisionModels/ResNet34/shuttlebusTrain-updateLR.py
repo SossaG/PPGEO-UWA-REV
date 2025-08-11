@@ -7,7 +7,7 @@ from PIL import Image
 
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
-from models_ivan import ResNet34PilotNet
+from model import videoMamba
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -27,18 +27,107 @@ from torchsummary import summary
 import time
 import random
 
-import yaml
-
-
-
-Images_All = []
-Speeds_All = []
-Steering_Angles_All = []
+writer = SummaryWriter()
 
 def pair(t):
 
     return t if isinstance(t, tuple) else (t,t)
 
+class videoM(nn.Module):
+    def __init__(
+            self,
+            img_size=224,
+            patch_size=16,
+            depth=24,
+            embed_dim=192,
+            channels=3,
+            num_classes=1000,
+            drop_rate=0.,
+            drop_path_rate=0.1,
+            ssm_cfg=None,
+            norm_epsilon=1e-5,
+            initializer_cfg=None,
+            fused_add_norm=False,
+            rms_norm=False,
+            residual_in_fp32=True,
+            bimamba_type="v2",
+            
+            kernel_size=1,
+            num_frames=8,
+            fc_drop_rate=0.,
+            device=None,
+            dtype=None,
+
+            use_checkpoint=False,
+            checkpoint_num=0,
+
+            d_state=16
+    ):
+        super().__init__()
+
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+
+        self.video_model = videoMamba(
+                    img_size=img_size,
+                    patch_size=patch_size,
+                    depth=depth,
+                    embed_dim=embed_dim,
+                    channels=channels,
+                    num_classes=num_classes,
+                    drop_rate=drop_rate,
+                    drop_path_rate=drop_path_rate,
+                    ssm_cfg=ssm_cfg,
+                    norm_epsilon=norm_epsilon,
+                    initializer_cfg=initializer_cfg,
+                    fused_add_norm=fused_add_norm,
+                    rms_norm=rms_norm,
+                    residual_in_fp32=residual_in_fp32,
+                    bimamba_type=bimamba_type,
+                    
+                    kernel_size=kernel_size,
+                    num_frames=num_frames,
+                    fc_drop_rate=fc_drop_rate,
+                    device=device,
+                    dtype=dtype,
+
+                    use_checkpoint=use_checkpoint,
+                    checkpoint_num=checkpoint_num,
+
+                    d_state=d_state       
+        )
+
+        self.mlp_head1 = nn.Sequential(
+                nn.Linear(num_classes, int(num_classes / 2)),
+                nn.LayerNorm(int(num_classes / 2)),
+                nn.ELU(),
+                nn.Linear(int(num_classes / 2),  int(num_classes / 4)),
+                nn.LayerNorm(int(num_classes / 4)),
+                nn.ELU(),
+                nn.Linear(int(num_classes / 4),  int(num_classes / 8)),
+                nn.LayerNorm(int(num_classes / 8)),
+                nn.ELU(),
+                nn.Linear(int(num_classes / 8), 1)).to(device=self.device)
+        
+        self.mlp_head2 = nn.Sequential(
+                nn.Linear(num_classes, int(num_classes / 2)),
+                nn.LayerNorm(int(num_classes / 2)),
+                nn.ELU(),
+                nn.Linear(int(num_classes / 2),  int(num_classes / 4)),
+                nn.LayerNorm(int(num_classes / 4)),
+                nn.ELU(),
+                nn.Linear(int(num_classes / 4),  int(num_classes / 8)),
+                nn.LayerNorm(int(num_classes / 8)),
+                nn.ELU(),
+                nn.Linear(int(num_classes / 8), 1)).to(device=self.device)
+
+    def forward(self, img):
+        x = self.video_model(img)
+        # b, n = x.shape
+        # print(x.shape)
+
+        speed = self.mlp_head1(x)
+        angle = self.mlp_head2(x)
+        return speed[:,0], angle[:,0]
 
 transform = transforms.Compose(
     [
@@ -62,39 +151,83 @@ class dataset(torch.utils.data.Dataset):
         img = self.file_list[idx]
         label1 = self.label_list1[idx]
         label2 = self.label_list2[idx]
-        img_transformed = self.transform(img)
+        tensor_list = []
+        for i in img:
+            img_transformed = self.transform(i)
+            tensor_list.append(img_transformed)
+        img_transformed = torch.stack(tensor_list)
         return img_transformed, label1, label2
 
-def load_latest_data(Search_Folder):
-    # for Files in os.listdir(Search_Folder):
+def load_latest_data(Search_Folder, frames):
+    Images_All = []
+    # print(Search_Folder)
+    for i in range(frames):
         # print(i)
         # print(Files)
-    # print(Search_Folder)
-    # print(Search_Folder[0].split("_")[-6])
-    # print(Search_Folder[1].split("_")[-6])
+        try:
+            if(int(Search_Folder[1][i].split("_")[-6]) - int(Search_Folder[0][i].split("_")[-6]) != 6):
+                # print(int(Search_Folder[1].split("_")[-6]) - int(Search_Folder[0].split("_")[-6]))
+                Images_All.clear()
+                del Images_All
+                return
+        except:
+            Images_All.clear()
+            del Images_All
+            return
+        try:
+            data = np.load(Search_Folder[1][i], allow_pickle=True)
+            past_data = np.load(Search_Folder[0][i], allow_pickle=True)
+        except EOFError:
+            Images_All.clear()
+            del Images_All
+            return
+        except:
+            # print("skipping file in {}: {}", Search_Folder, Files)
+            Images_All.clear()
+            del Images_All
+            return
+
+        img = data[0]
+        if len(past_data) == 8:
+            Speed, Steering_Angle = past_data[2], past_data[3]
+        elif len(past_data) == 10:
+            Speed, Steering_Angle = past_data[8], past_data[9]
+        else:
+            Speed, Steering_Angle = past_data[1], past_data[2]
+        
+        # img = img[160:360, 80:400]
+        # img = Image.fromarray(np.uint8(img)).convert('RGB')
+        try:
+            if Speed == None:
+                # print(join(Search_Folder, Files))
+                del Images_All
+                return
+            if Steering_Angle == None:
+                # print(join(Search_Folder, Files))
+                del Images_All
+                return
+            # if img == None:
+                # print(join(Search_Folder, Files))
+                # print(Files)
+                # continue
+        except:
+            print(Speed)
+            print(Steering_Angle)
+            print(img)
+            # print(Files)
+            del Images_All
+            return
+        Images_All.append(img)
+        # idx = int(Files.split("_")[2])
+        # if idx > frames:
+                # print(Images_All[-8:])
+    if len(Images_All) != frames:
+        del Images_All
+        return
     
-    # try:
-    #     if(int(Search_Folder[1].split("_")[-6]) - int(Search_Folder[0].split("_")[-6]) != 6):
-    #         # print(int(Search_Folder[1].split("_")[-6]) - int(Search_Folder[0].split("_")[-6]))
-    #         return
-    # except:
-    #     return
-    try:
-        data = np.load(Search_Folder[1], allow_pickle=True)
-        # past_data = np.load(Search_Folder[0], allow_pickle=True)
-    except EOFError:
-        return
-    except:
-        # print("skipping file in {}: {}", Search_Folder, Files)
-        return
-
-    img = data[0]
-
-    if data[8] is None or data[9] is None:
-        speed, steering = data[2], data[3]
-    else:
-        speed, steering = data[8], data[9]
-
+    Speed = Speed / Speed_scale
+    Steering_Angle = Steering_Angle / Steering_Angle_scale
+    
     # add image shifting here
     # offset = 0
     # mean = 80
@@ -108,178 +241,115 @@ def load_latest_data(Search_Folder):
     
     offset = np.random.randint(0, 80)
 
-    #check for model type training
-    
-    img = img[60:, 0 + offset:400 + offset]
-    steering = steering - ((40-offset)/40)*0.2
-    img = Image.fromarray(np.uint8(img), mode='L')
-    # print(f"✔️ Loaded sample: img={img.size}, speed={speed:.3f}, steering={steering:.3f}")
+    Images_All_Group = []
+    for img in Images_All:
+        img = img[60:, 0 + offset:400 + offset]
+        
+        img = Image.fromarray(np.uint8(img), mode='L')
+        Images_All_Group.append(img)
+    Steering_Angle = Steering_Angle - (40-offset)/40*0.2
+    Images_All_Combined.append(Images_All_Group.copy())
+    Speeds_All.append(Speed)
+    Steering_Angles_All.append(Steering_Angle)
+    del Images_All
 
-    try:
-        if speed == None:
-            # print(join(Search_Folder, Files))
-            return
-        if steering == None:
-            # print(join(Search_Folder, Files))
-            return
-        if img == None:
-            # print(join(Search_Folder, Files))
-            # print(Files)
-            return
-    except:
-        print(speed)
-        print(steering)
-        print(img)
-        print(Search_Folder)
-
-    Images_All.append(img)
-    Speeds_All.append(speed)
-    Steering_Angles_All.append(steering)
-
-    
 
 if __name__ == "__main__":
-
-
-
-    lr = 1e-4 #1e-4
+    lr = 1e-4
     weight_decay = 0.05
-    gamma = 0.01
-    batch_size = 150
+    betas = (0.9, 0.98)
+    eps = 1e-9
+    gamma = 0.8
+    seed = 42
+    batch_size = 18
     best_loss = 1000000
     Speed_scale = 1.0
     Steering_Angle_scale = 1.0
-
-    model_path_name = "example.ckpt" #if loading model from checkpoint, put the model path name here
-    checkpoint = None
-
-    
-    with open('config.yaml', 'r') as file:
-        config_yaml = yaml.safe_load(file)
+    frames = 8
+    steering_weight = 1.0
+    speed_weight = 1.0
 
     parser = argparse.ArgumentParser("Load model from checkpoint")
-    parser.add_argument("pretrain_type", type=str, default="imagenet", help="iimagenet, ppgeo, or custom_ppgeo")
-    parser.add_argument("freeze_mode", type=str, choices=["frozen", "unfrozen", "partial"], default="unfrozen",
-                    help="Control freezing of encoder: frozen, unfrozen, or partial")
-    parser.add_argument("model_type", default="lane_following", type=str, nargs='?')
-    parser.add_argument("dataset_prop", type=float, default=1.0, help="Proportion of full dataset to use for training/val/test split")    
     parser.add_argument("--load_model", action="store_true")
     parser.add_argument("--fine_tune_model", action="store_true")
-    
+    parser.add_argument("model_type", default="lane_following", type=str, nargs='?')
+
+    model_path_name = "videoMamba_shuttle_lane_following_46_0.0035_0.8200_0.8080.pth"
+    checkpoint = None
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu") #K adds this in model class definition so I will just add here
-    
-    print("✅ Using device:", device)
-    if torch.cuda.is_available():
-        print("🖥️  CUDA device name:", torch.cuda.get_device_name(0))
+    model = videoM(
+            img_size=(180, 400),
+            patch_size=(18, 40),
+            depth=8,
+            embed_dim=512,
+            channels=1,
+            num_classes=1024,
+            drop_rate=0.1,
+            drop_path_rate=0.1,
+            ssm_cfg=None,
+            norm_epsilon=1e-5,
+            initializer_cfg=None,
+            fused_add_norm=True,
+            rms_norm=True,
+            residual_in_fp32=True,
+            bimamba_type="v2",
+            
+            kernel_size=1,
+            num_frames=frames,
+            fc_drop_rate=0.1,
+            device=device,
+            dtype=None,
+
+            use_checkpoint=False,
+            checkpoint_num=0,
+
+            d_state=16,
+        )
 
     args = parser.parse_args()
 
-    if args.fine_tune_model:
+   
+    torch.manual_seed(1234)
+    if device == "cuda":
+        torch.cuda.manual_seed_all(1234)
+
+    if args.load_model:
+        print("loading model")
+        checkpoint = torch.load(model_path_name, weights_only=True)
         
-        if args.pretrain_type == "ppgeo":
-            print(" Fine tuning PPGeo pretrained ResNet-34 encoder")
-            model = ResNet34PilotNet(use_rgb=False).to(device) #manually set rgb to false for now since currently dont think ill ever need it
-            ppgeo_ckpt = torch.load('resnet34.ckpt', map_location='cpu')
-            state_dict = ppgeo_ckpt['state_dict']
-            state_dict = {k: v for k, v in state_dict.items() if not k.startswith('fc.')}
-
-            # ===  Freeze Modes ===
-            if args.freeze_mode == "frozen":
-                print(' Freezing encoder weights')
-                for param in model.backbone.parameters():
-                    param.requires_grad = False
-            elif args.freeze_mode == "partial":
-                # freeze all but conv1 and layer1
-                print('Partially Freezing encoder weights')
-                for name, p in model.backbone.named_parameters():
-                    if not (name.startswith('conv1') or name.startswith('layer1')):
-                        p.requires_grad = False
-
-            # ——— GRAYSCALE ADAPTATION & WEIGHT LOADING ———
-            # if doing true-grayscale fine-tuning, average the pretrained RGB conv1 → 1-channel
-            # checkpoint has "conv1.weight": torch.Size([64,3,7,7])
-            w3 = state_dict['conv1.weight']                # [64,3,7,7]
-            state_dict['conv1.weight'] = w3.mean(1, keepdim=True)  # → [64,1,7,7] 
-            # now load everything (conv1 will match or be ignored)  
-            model.backbone.load_state_dict(state_dict, strict=False)
-
-        elif args.pretrain_type == "custom_ppgeo":
-            print(" Fine tuning  Custom PPGeo pretrained ResNet-34 encoder")
-            model = ResNet34PilotNet(use_rgb=False).to(device) #manually set rgb to false for now since currently dont think ill ever need it
-            ppgeo_ckpt = torch.load('epoch=19-last-custom-ppgeo-trial1-stripped.ckpt', map_location='cpu') #already stripped and removed prefixes in the strip_custom_model.pu
-            state_dict = ppgeo_ckpt['state_dict'] if 'state_dict' in ppgeo_ckpt else ppgeo_ckpt
-            state_dict = {k: v for k, v in state_dict.items() if not k.startswith('fc.')}# Drop fc layer weights (we use our own head for downstream)
-            
-
-            # ===  Freeze Modes ===
-            if args.freeze_mode == "frozen":
-                print(' Freezing encoder weights')
-                for param in model.backbone.parameters():
-                    param.requires_grad = False
-            elif args.freeze_mode == "partial":
-                # freeze all but conv1 and layer1
-                print('Partially Freezing encoder weights')
-                for name, p in model.backbone.named_parameters():
-                    if not (name.startswith('conv1') or name.startswith('layer1')):
-                        p.requires_grad = False
-
-            # ——— GRAYSCALE ADAPTATION & WEIGHT LOADING ———
-            # if doing true-grayscale fine-tuning, average the pretrained RGB conv1 → 1-channel
-            # checkpoint has "conv1.weight": torch.Size([64,3,7,7])
-            w3 = state_dict['conv1.weight']                # [64,3,7,7]
-            state_dict['conv1.weight'] = w3.mean(1, keepdim=True)  # → [64,1,7,7] 
-            # now load everything (conv1 will match or be ignored)  
-            model.backbone.load_state_dict(state_dict, strict=False)
-
-        
-
-
-
-        elif args.pretrain_type == "imagenet":
-            print("🟢 Fine tuning ImageNet pretrained ResNet-34 encoder")
-            model = ResNet34PilotNet(pretrained=True).to(device)
-            # ——— GRAYSCALE ADAPTER for ImageNet ———
-            # model.backbone.conv1.weight is [64,3,7,7] → average to [64,1,7,7]
-            w3 = model.backbone.conv1.weight.data         # [64,3,7,7]
-            w1 = w3.mean(1, keepdim=True)                # [64,1,7,7]
-            model.backbone.conv1.weight.data.copy_(w1)
-
-        
-
-    elif args.load_model:
-        print(f"continuing training {model_path_name} from checkpoint")
-        model = ResNet34PilotNet().to(device)
+        model.load_state_dict(checkpoint['model_state_dict'])
+    elif args.fine_tune_model:
         checkpoint = torch.load(model_path_name, weights_only=True)
         model.load_state_dict(checkpoint['model_state_dict'])
+        
 
-    
-    #summary(model, (1, 160, 320)) commenting out for now as it may cause errors from dimension mismatches with kierans
+    model.cuda()
+
+    summary(model, (1, frames, 180, 400))
+
+    # Images_All = []
+    Images_All_Combined = []
+    Speeds_All = []
+    Steering_Angles_All = []
 
     Images_All_Straight = []
+    Images_All_Straight_Combined = []
     Speeds_All_Straight = []
     Steering_Angles_All_Straight = []
 
     Images_All_Turn = []
+    Images_All_Turn_Combined = []
     Speeds_All_Turn = []
     Steering_Angles_All_Turn = []
-
-    Images_All = []
-    Speeds_All = []
-    Steering_Angles_All = []
-
-    pretrain_type = args.pretrain_type
-    dataset_prop = args.dataset_prop
-    freeze_mode = args.freeze_mode
 
     if args.fine_tune_model:
         model_name = args.model_type + '_finetune'
     else:
         model_name = args.model_type
     print(model_name)
-    
-    writer = SummaryWriter(log_dir=f"runs/{pretrain_type}_{freeze_mode}_{model_name}_{dataset_prop}")
 
     if args.fine_tune_model:
         lane_follow_files = [
@@ -343,7 +413,6 @@ if __name__ == "__main__":
 
     Image_Paths = []
     All_Searchable_Folders = []
-    past_data = []
     offset = -7 #offset is 6 but need to use 7 because indexing
 
     if args.model_type == "lane_following":
@@ -353,8 +422,8 @@ if __name__ == "__main__":
     else:
         model_files = reverse_files
 
-    Base_Path = "/media/sim/data/eglinton_datasorting_dual/sorted_eglinton_data"
-
+    # Base_Path = dirname("/media/quirky/EglintonData/eglinton_datasorting_dual/sorted_eglinton_data/")
+    Base_Path = dirname("/home/quirky/Documents/eglinton_datasorting_dual/sorted_eglinton_data/")
 
     for Folders in os.listdir(Base_Path):
         Sorted_Folder_Path = join(Base_Path, Folders)
@@ -367,23 +436,27 @@ if __name__ == "__main__":
         if exists(Image_Path):
             for Folders in os.listdir(Image_Path):
                 Search_Folder = join(Image_Path, Folders)
-                i = 0
-                past_data.clear()
+                group = []
                 for file in sorted(os.listdir(Search_Folder), key=lambda x: int(x.split("_")[1])):
-                    past_data.append(file)
-                    i += 1
-                    if len(past_data) < 6:
-                        continue
-                    else:
-                        All_Searchable_Folders.append([join(Search_Folder, past_data[i + offset]), \
-                                                   join(Search_Folder, file)])
+                    group_file = join(Search_Folder, file)
+                    group.append(group_file)
+                    if len(group) == frames + 6:
+                        All_Searchable_Folders.append([group[0:8].copy(), group[6:].copy()])
+                        # print(len(group[0:8]))
+                        # print(group[0:8])
+                        # print(len(group[6:]))
+                        # print(All_Searchable_Folders[-1])
+                        group.pop(0)
+                        if args.model_type == "lane_following":
+                            group.pop(0)
+                            # group.pop(0)
+                            # group.pop(0)
+                
         else:
             print('[Error!] Check Image Directory is Correct!')
             sys.exit()
 
     random.shuffle(All_Searchable_Folders)
-    subset_len = int(len(All_Searchable_Folders) * dataset_prop)
-    All_Searchable_Folders = All_Searchable_Folders[:subset_len] #for dataset proportion
 
 
     # criterion = nn.MSELoss()
@@ -392,19 +465,12 @@ if __name__ == "__main__":
     if args.load_model:
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         for param_group in optimizer.param_groups:
-            old = param_group['lr']
-            param_group['lr'] = old * 0.7
-            print(f"LR updated: {old:.6f} → {param_group['lr']:.6f}")
+            current_lr = param_group['lr']
+            new_lr = current_lr * 0.7
+            param_group['lr'] = new_lr
+            print(f"LR updated: {current_lr:.6f} → {new_lr:.6f}")
     # scheduler = StepLR(optimizer, step_size=10, gamma=gamma)
-    #scheduler = ReduceLROnPlateau(optimizer, 'min', factor=gamma, patience=5)
-    scheduler = ReduceLROnPlateau(
-    optimizer,
-    mode='min',
-    factor=gamma,           # 0.8 from #1
-    patience=3,             # was 5
-    threshold=5e-5,         # add threshold
-    threshold_mode='abs'    # make threshold absolute
-)
+    scheduler = ReduceLROnPlateau(optimizer, 'min', factor=gamma, patience=3, threshold=0.00005, threshold_mode='abs')
 
     epochs = 50
     use_amp = True
@@ -413,8 +479,6 @@ if __name__ == "__main__":
         start_epoch = checkpoint["epoch"] + 1
     else:
         start_epoch = 0
-
-    device = "cuda" if torch.cuda.is_available() else "cpu"
 
     print(len(All_Searchable_Folders))
 
@@ -431,42 +495,31 @@ if __name__ == "__main__":
         total_epoch_val_accuracy1 = 0
         total_epoch_val_accuracy2 = 0
         temp_search = All_Searchable_Folders.copy()
-        print(f"length of temp_search: {len(temp_search)}")
         train_len = 0
         val_len = 0
         batch = 0
-        straight_count = 0
-        turning_count = 0
 
         while len(temp_search) != 0:
             epoch_loss = 0
             epoch_accuracy1 = 0
             epoch_accuracy2 = 0
 
-            max_samples = min(15000, len(All_Searchable_Folders) * 2)  
-            print(f"Pre-loading: temp_search has {len(temp_search)} folders before sampling")
-
-            while (len(Images_All) < max_samples) and len(temp_search) != 0:
-                
+            while (len(Images_All_Combined) < 5000) and len(temp_search) != 0:
+                #shuffle through behviours XX
                 current_folder = temp_search.pop()
-                load_latest_data(current_folder)
+                # print(current_folder)
+
+                load_latest_data(current_folder, frames)
+                
             
-                # print(len(Images_All))
+                # print(len(Images_All_Combined))
             # print(len(temp_search))
             # print(len(All_Searchable_Folders))
             # print(len(Images_All))
-
-            print(f"📉 Post-loading: {len(temp_search)} folders left after loading {len(Images_All)} samples")
-
             print((len(temp_search)/len(All_Searchable_Folders))*100)
             
 
-            print(f" Total Searchable Folders: {len(All_Searchable_Folders)}")
-            print(f" Current batch folder count: {len(temp_search)}")
-            print(f" Images_All: {len(Images_All)}, 🚗 Speeds_All: {len(Speeds_All)},  Steering_Angles_All: {len(Steering_Angles_All)}")
-
-
-            Split_a = train_test_split(Images_All, Speeds_All, Steering_Angles_All, test_size= 0.2, shuffle=True)
+            Split_a = train_test_split(Images_All_Combined, Speeds_All, Steering_Angles_All, test_size=0.1, shuffle=True)
             (Images, Image_Test, Speeds, Speed_Test, Steering_Angles, Steering_Angle_Test) = Split_a   
             Split_b = train_test_split(Images, Speeds, Steering_Angles, test_size=0.2, shuffle=True)
             (Image_Train, Image_Valid, Speed_Train, Speed_Valid, Steering_Angle_Train, Steering_Angle_Valid) = Split_b
@@ -494,37 +547,17 @@ if __name__ == "__main__":
                     continue
                
                 data = data.to(device)
-                # print("----------------label -- output -- loss-------------------")
-                # print(label1)
-                # print(label2)
-
-                for item in label2:
-                    if abs(item) > 0.1:
-                        turning_count += 1
-                    else:
-                        straight_count += 1
-
                 label1 = label1.float().to(device)
                 label1 = label1 / Speed_scale
                 label2 = label2.float().to(device)
                 label2 = label2 / Steering_Angle_scale
-
+                data = rearrange(data, "b f c h w -> b c f h w")
 
                 output1, output2 = model(data)
-                
-                output1 = output1.squeeze()  # [N, 1] → [N]
-                output2 = output2.squeeze()
                 loss1 = criterion(output1, label1)
                 loss2 = criterion(output2, label2)
 
-                
-                # print(output1)
-                # print(output2)
-                # print(loss1)
-                # print(loss2)
-                # print("----------------------------------------------------------")
-
-                loss = loss1 + loss2
+                loss = (loss1 * speed_weight) + (loss2 * steering_weight)
 
                 total_epoch_loss += loss.item()
 
@@ -564,20 +597,17 @@ if __name__ == "__main__":
                     data = data.to(device)
                     label1 = label1.float().to(device)
                     label2 = label2.float().to(device)
+                    data = rearrange(data, "b f c h w -> b c f h w")
 
                     val_output1, val_output2 = model(data)
-
-                    val_output1 = val_output1.squeeze()  # [N, 1] → [N]
-                    val_output2 = val_output2.squeeze()
-                    
                     val_loss1 = criterion(val_output1, label1)
                     val_loss2 = criterion(val_output2, label2)
 
-                    val_loss = val_loss1 + val_loss2
+                    val_loss = (val_loss1 * speed_weight) + (val_loss2 * steering_weight)
                     total_epoch_val_loss += val_loss.item()
 
-                    acc1 = (abs(val_output1 - label1) < (0.27 / 5.4)).float().sum()
-                    acc2 = (abs(val_output2 - label2) < (0.015 / 0.3)).float().sum()
+                    acc1 = (abs(val_output1 - label1) < (0.5 / 5.4)).float().sum()
+                    acc2 = (abs(val_output2 - label2) < (0.03 / 0.3)).float().sum()
                     epoch_val_accuracy1 += acc1
                     epoch_val_accuracy2 += acc2
                     epoch_val_loss += val_loss.item()
@@ -595,11 +625,11 @@ if __name__ == "__main__":
                 # )
 
             batch += 1
-            Images_All = []
+            # Images_All = []
+            del train_data, train_loader, val_data, val_loader, test_data, test_loader, Speeds_All, Steering_Angles_All, Images_All_Combined
             Speeds_All = []
             Steering_Angles_All = []
-            del train_data, train_loader, val_data, val_loader, test_data, test_loader
-         
+            Images_All_Combined = []
 
         total_epoch_accuracy1 = total_epoch_accuracy1 / train_len
         total_epoch_accuracy2 = total_epoch_accuracy2 / train_len
@@ -609,14 +639,11 @@ if __name__ == "__main__":
         total_epoch_val_loss = total_epoch_val_loss / val_len
         writer.add_scalar("Loss/Train", total_epoch_loss, epoch)
         writer.add_scalar("Loss/Validation", total_epoch_val_loss, epoch)
-        #i want to log the learning rate for each group on tensorboard as well
-        for i, pg in enumerate(optimizer.param_groups):
-            writer.add_scalar(f"LR/group_{i}", pg['lr'], epoch)
-
         writer.add_scalar("accuracy1/Train", total_epoch_accuracy1, epoch)
         writer.add_scalar("accuracy2/Train", total_epoch_accuracy2, epoch)
         writer.add_scalar("accuracy1/Validation", total_epoch_val_accuracy1, epoch)
         writer.add_scalar("accuracy2/Validation", total_epoch_val_accuracy2, epoch)
+
 
         print(
             "Total Epoch : {} values, accuracy1 : {}, accuracy2 : {}, loss : {}".format(
@@ -628,22 +655,18 @@ if __name__ == "__main__":
                 epoch + 1, total_epoch_val_accuracy1, total_epoch_val_accuracy2, total_epoch_val_loss
             )
         )
-        #save in an organised folder of checkpoints for that run
-        checkpoint_dir = f"checkpoints/{pretrain_type}_{freeze_mode}_{model_name}_{dataset_prop}"
-        os.makedirs(checkpoint_dir, exist_ok=True)
 
         if best_loss > total_epoch_loss:
             best_loss = total_epoch_loss
 
-            save_name = f"ResNet34_shuttle_{pretrain_type}_{freeze_mode}_{model_name}_{dataset_prop}_{epoch+1}_{total_epoch_loss:.4f}_{total_epoch_accuracy1:.4f}_{total_epoch_accuracy2:.4f}.pth"
-            save_path = os.path.join(checkpoint_dir, save_name)
+            save_name = f"videoMamba_shuttle_{model_name}_{epoch+1}_{total_epoch_loss:.4f}_{total_epoch_accuracy1:.4f}_{total_epoch_accuracy2:.4f}.pth"
 
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'loss': total_epoch_loss
-            }, save_path)
+            }, save_name)
 
         scheduler.step(total_epoch_val_loss)
 
@@ -652,14 +675,12 @@ if __name__ == "__main__":
 
         print(f'Time elapsed: {elapsed_time}')
 
-        print(f"straight count: {straight_count}, turning count: {turning_count}")
-
     end_time = time.strftime("%d-%m-%Y %H:%M:%S", time.localtime())
 
     print(f'training finished at: {end_time}')
 
-
-
-    torch.save(model.state_dict(), f'finished_models/ResNet34_shuttlebus_{pretrain_type}_{freeze_mode}_{model_name}_{dataset_prop}.pth')
+    torch.save(model.state_dict(), f'videoMamba_shuttlebus_{model_name}.pth')
     writer.flush()
     writer.close()
+
+
