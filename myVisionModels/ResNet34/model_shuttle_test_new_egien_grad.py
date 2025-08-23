@@ -34,6 +34,9 @@ import random
 
 
 from pytorch_grad_cam import EigenCAM as LibEigenCAM
+from pytorch_grad_cam import GradCAM
+from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
+
 
 
 
@@ -149,11 +152,33 @@ if __name__ == "__main__":
         m.to(device)
         return m
 
+    def _find_last_conv_module(model: nn.Module) -> nn.Module:
+        """Return the last Conv2d module in the model (used for Eigen-CAM)."""
+        last = None
+        for _, m in model.named_modules():
+            if isinstance(m, nn.Conv2d):
+                last = m
+        if last is None:
+            raise RuntimeError("Could not locate a Conv2d layer for Eigen-CAM.")
+        return last
+
+    class _ConcatOutputsWrapper(nn.Module):
+        """Wraps (speed, angle) -> tensor of shape (N, 2) for grad-cam libs."""
+        def __init__(self, model: nn.Module):
+            super().__init__()
+            self.model = model
+        def forward(self, x):
+            o1, o2 = self.model(x)          # each (N,1) or (N,)
+            if o1.dim() == 1: o1 = o1.unsqueeze(1)
+            if o2.dim() == 1: o2 = o2.unsqueeze(1)
+            return torch.cat([o1, o2], dim=1)
+
     def _last_conv_before_gap_or_fallback(model: nn.Module) -> nn.Module:
         """Prefer the last conv right before GAP (best interpretability); fallback to last Conv2d."""
-        # Works for your ResNet34PilotNet(backbone=resnet34)
+        # Works for ResNet34 backbones wrapped inside your model:
+        # try to reach ...layer4[-1].conv2
         try:
-            return model.backbone.layer4[-1].conv2  # last conv before GAP in ResNet-34
+            return model.backbone.layer4[-1].conv2
         except Exception:
             last = None
             for _, m in model.named_modules():
@@ -163,88 +188,22 @@ if __name__ == "__main__":
                 raise RuntimeError("Could not locate a Conv2d layer for Eigen-CAM.")
             return last
 
-    def _compute_eigencam_overlay(model: nn.Module, saliency_img: Image.Image, device: str) -> np.ndarray:
-        """
-        No-library Eigen-CAM:
-        1) hook last conv → activations A ∈ R^{C,Hf,Wf}
-        2) zero-center per-channel, SVD on A_flat ∈ R^{C,HW}
-        3) take first left singular vector w, cam = w^T A_flat → (Hf,Wf)
-        4) normalize, resize to input crop, blend 50/50 with grayscale
-        Returns overlay as float RGB in [0,1] with shape (H, W, 3).
-        """
-        # Build input exactly like your inference path
-        x = saliency_transform(saliency_img).unsqueeze(0).to(device)
-
-        # Capture activations from the target conv
-        feats = {}
-        target = _last_conv_before_gap_or_fallback(model)
-
-        def _fw_hook(_, __, output):
-            feats['act'] = output.detach()
-
-        h = target.register_forward_hook(_fw_hook)
-        model.eval()
-        with torch.no_grad():
-            _ = model(x)  # outputs are unused for Eigen-CAM
-        h.remove()
-
-        assert 'act' in feats, "Eigen-CAM: forward hook did not capture activations"
-        A = feats['act'][0]              # (C, Hf, Wf) on device
-        C, Hf, Wf = A.shape
-
-        # Flatten spatial and zero-center per channel; do SVD on CPU for stability
-        # --- SVD on zero-centered activations ---
-        Af = A.reshape(C, -1).float().cpu()              # (C, HW)
-        Af = Af - Af.mean(dim=1, keepdim=True)
-
-        try:
-            U, S, Vh = torch.linalg.svd(Af, full_matrices=False)
-            w = U[:, 0]                                  # (C,)
-            cam_flat = torch.matmul(w, Af)               # (HW,)
-        except Exception:
-            U, S, V = torch.svd(Af)
-            w = U[:, 0]
-            cam_flat = torch.matmul(w, Af)
-
-        cam = cam_flat.reshape(Hf, Wf)                   # (Hf, Wf)
-
-        # >>> NEW: sign disambiguation using feature energy (always ≥0)
-        energy = (A.float().cpu() ** 2).sum(dim=0)       # (Hf, Wf)
-        corr = (cam * energy).mean()                     # scalar
-        if corr < 0:
-            cam = -cam                                   # flip sign so it aligns with energy
-        # <<<
-
-        
-        # >>> NEW: make “importance” strictly positive
-        # Option 1 (recommended): keep only positive contribution (ReLU)
-        cam = torch.clamp(cam, min=0)
-        # (Alternative: magnitude-only)
-        # cam = cam.abs()
-        # <<<
-
-        # normalise [0,1] as you already do
-        cam = cam - cam.min()
-        cam = cam / (cam.max() + 1e-8)
-        cam_np = cam.numpy()
-
-
-        # Resize CAM to crop size
-        cam_resized = cv2.resize(cam_np, (saliency_img.width, saliency_img.height), interpolation=cv2.INTER_CUBIC)
-
-        # Base grayscale → BGR uint8
-        base_bgr = cv2.cvtColor((np.array(saliency_img)).astype(np.uint8), cv2.COLOR_GRAY2BGR)
-
-        # CAM → heatmap (BGR uint8) using a perceptually nicer map than JET
-        heat_bgr = cv2.applyColorMap((cam_resized * 255).astype(np.uint8), cv2.COLORMAP_TURBO)
-
-        # Softer blend (reduce washout)
-        ALPHA = 0.35
-        overlay_bgr = cv2.addWeighted(base_bgr, 1.0 - ALPHA, heat_bgr, ALPHA, 0.0)
-        return overlay_bgr
-
-    
-
+    def _as_2d(cam_result):
+        """Coerce grad-cam library outputs to a 2D array (H, W)."""
+        cam = cam_result[0] if isinstance(cam_result, (list, tuple)) else cam_result
+        if isinstance(cam, torch.Tensor):
+            cam = cam.detach().float().cpu().numpy()
+        cam = np.asarray(cam)
+        if cam.ndim == 3:
+            # handle (1,H,W) or (H,W,1) or (N,H,W)
+            if cam.shape[0] == 1 and cam.shape[1] > 1:
+                cam = cam[0]
+            elif cam.shape[-1] == 1:
+                cam = cam[..., 0]
+            else:
+                cam = cam[0]
+        assert cam.ndim == 2, f"Expected 2D CAM, got shape {cam.shape}"
+        return cam
 
 
     
@@ -519,140 +478,101 @@ if __name__ == "__main__":
         k = cv2.waitKey(0)
         # print(k)
         if k == 115:
-
-            ###################### saliency straight #########################
-
+            ###################### saliency (Eigen-CAM targeted to model features) #########################
+            # Build model input from your cropped PIL image
             input_tensor = saliency_transform(saliency_img).unsqueeze(0).to(device)
-            input_tensor.requires_grad_()
-            target = None
 
-            #pass image to model
-            if current_model == 0:
-                saliency_output1, saliency_output2 = model(input_tensor)
-                target = saliency_output1[0, 0] if saliency_output1.dim() == 2 else saliency_output1.squeeze()
+            # Wrap so the CAM lib sees a single (N,2) tensor instead of a tuple
+            wrapped = _ConcatOutputsWrapper(model).to(device).eval()
 
-                # Backward pass: compute gradients of output w.r.t. input image
-                model.zero_grad()
-                target.backward()
-            # elif current_model == 1:
-            #     saliency_output1, saliency_output2 = model_fine(input_tensor)
-            #     target = saliency_output1[0, 0] if saliency_output1.dim() == 2 else saliency_output1.squeeze()
+            target_module = _last_conv_before_gap_or_fallback(wrapped)
 
-            #     # Backward pass: compute gradients of output w.r.t. input image
-            #     model_fine.zero_grad()
-            #     target.backward()
-            """elif current_model == 2:
-                saliency_output1, saliency_output2 = model_pullin(input_tensor)
-                target = saliency_output1[0, 0] if saliency_output1.dim() == 2 else saliency_output1.squeeze()
 
-                # Backward pass: compute gradients of output w.r.t. input image
-                model_pullin.zero_grad()
-                target.backward()
-            else:
-                saliency_output1, saliency_output2 = model_reverse(input_tensor)
-                target = saliency_output1[0, 0] if saliency_output1.dim() == 2 else saliency_output1.squeeze()
+            # Compute Eigen-CAM; use context manager for safe cleanup
+            with LibEigenCAM(model=wrapped, target_layers=[target_module]) as cam_obj:
+                cam_result = cam_obj(input_tensor=input_tensor)   # class-agnostic
 
-                # Backward pass: compute gradients of output w.r.t. input image
-                model_reverse.zero_grad()
-                target.backward()"""
-            saliency = input_tensor.grad.data.abs().squeeze(0).squeeze(0).cpu()   # shape: (3, 224, 224)
+            # ---- Robustly obtain a 2D CAM (Hf, Wf) ----
+            cam_gray = cam_result[0] if isinstance(cam_result, (list, tuple)) else cam_result
+            if isinstance(cam_gray, torch.Tensor):
+                cam_gray = cam_gray.detach().float().cpu().numpy()
+            cam_gray = np.asarray(cam_gray)
+            if cam_gray.ndim == 3:
+                # handle (1,H,W) / (H,W,1) / (N,H,W)
+                if cam_gray.shape[0] == 1 and cam_gray.shape[1] > 1:
+                    cam_gray = cam_gray[0]
+                elif cam_gray.shape[-1] == 1:
+                    cam_gray = cam_gray[..., 0]
+                else:
+                    cam_gray = cam_gray[0]
+            assert cam_gray.ndim == 2, f"Expected 2D CAM, got shape {cam_gray.shape}"
 
-            # Original image: resized to match input shape and normalized back to [0, 1]
-            original_resized = saliency_img
-            original_np = np.array(original_resized) / 255.0  # shape: (224, 224), values in [0, 1]
-
-            # Normalize saliency to [0, 1]
-            saliency_np = saliency.numpy()
-            saliency_norm = (saliency_np - saliency_np.min()) / (saliency_np.max() - saliency_np.min() + 1e-8)
-
-            # Create a heatmap from the saliency map
-            heatmap = cm.jet(saliency_norm)[..., :3]  # shape: (224, 224, 3), ignore alpha channel
-
-            # Convert grayscale to RGB for overlay
+            # Resize CAM to your crop size and build overlay
+            cam_resized = cv2.resize(cam_gray, (saliency_img.width, saliency_img.height), interpolation=cv2.INTER_CUBIC)
+            original_np  = np.array(saliency_img) / 255.0
             original_rgb = np.stack([original_np]*3, axis=-1)
+            heatmap      = cm.jet(cam_resized)[..., :3]  # RGB [0,1]
+            overlay      = np.clip(0.5 * original_rgb + 0.5 * heatmap, 0, 1)
 
-            # Blend heatmap with original image
-            overlay = 0.5 * original_rgb + 0.5 * heatmap
-            overlay = np.clip(overlay, 0, 1)
+            # Show (keep your window names/behaviour)
             cv2.namedWindow('Linear Saliency', cv2.WINDOW_NORMAL)
-            overlay = cv2.resize(overlay, dsize=(480,240), interpolation=cv2.INTER_CUBIC)
+            vis1 = cv2.resize(overlay, dsize=(480, 240), interpolation=cv2.INTER_CUBIC)
             cv2.resizeWindow('Linear Saliency', 500, 300)
+            cv2.imshow('Linear Saliency', vis1)
 
-            cv2.imshow('Linear Saliency', overlay)
-
-
-            ###################### saliency turning #########################
-
-            input_tensor2 = saliency_transform(saliency_img).unsqueeze(0).to(device)
-            input_tensor2.requires_grad_()
-            target2 = None
-
-            #pass image to model
-            if current_model == 0:
-                saliency_output1, saliency_output2 = model(input_tensor2)
-                target2 = saliency_output2[0, 0] if saliency_output2.dim() == 2 else saliency_output2.squeeze()
-
-                # Backward pass: compute gradients of output w.r.t. input image
-                model.zero_grad()
-                target2.backward()
-            # elif current_model == 1:
-            #     saliency_output1, saliency_output2 = model_fine(input_tensor2)
-            #     target2 = saliency_output2[0, 0] if saliency_output2.dim() == 2 else saliency_output2.squeeze()
-
-            #     # Backward pass: compute gradients of output w.r.t. input image
-            #     model_fine.zero_grad()
-            #     target2.backward()
-            """elif current_model == 2:
-                saliency_output1, saliency_output2 = model_pullin(input_tensor2)
-                target2 = saliency_output2[0, 0] if saliency_output2.dim() == 2 else saliency_output2.squeeze()
-
-                # Backward pass: compute gradients of output w.r.t. input image
-                model_pullin.zero_grad()
-                target2.backward()
-            else:
-                saliency_output1, saliency_output2 = model_reverse(input_tensor2)
-                target2 = saliency_output2[0, 0] if saliency_output2.dim() == 2 else saliency_output2.squeeze()
-
-                # Backward pass: compute gradients of output w.r.t. input image
-                model_reverse.zero_grad()
-                target2.backward()"""
-            saliency2 = input_tensor2.grad.data.abs().squeeze(0).squeeze(0).cpu()   # shape: (3, 224, 224)
-
-            # Original image: resized to match input shape and normalized back to [0, 1]
-            original_resized2 = saliency_img
-            original_np2 = np.array(original_resized2) / 255.0  # shape: (224, 224), values in [0, 1]
-
-            # Normalize saliency to [0, 1]
-            saliency_np2 = saliency2.numpy()
-            saliency_norm2 = (saliency_np2 - saliency_np2.min()) / (saliency_np2.max() - saliency_np2.min() + 1e-8)
-
-            # Create a heatmap from the saliency map
-            heatmap2 = cm.jet(saliency_norm2)[..., :3]  # shape: (224, 224, 3), ignore alpha channel
-
-            # Convert grayscale to RGB for overlay
-            original_rgb2 = np.stack([original_np2]*3, axis=-1)
-
-            # Blend heatmap with original image
-            overlay2 = 0.5 * original_rgb2 + 0.5 * heatmap2
-            overlay2 = np.clip(overlay2, 0, 1)
+            # Eigen-CAM is class-agnostic; reuse for rotational window to preserve your UI
             cv2.namedWindow('Rotational Saliency', cv2.WINDOW_NORMAL)
-            overlay2 = cv2.resize(overlay2, dsize=(480,240), interpolation=cv2.INTER_CUBIC)
+            vis2 = cv2.resize(overlay, dsize=(480, 240), interpolation=cv2.INTER_CUBIC)
             cv2.resizeWindow('Rotational Saliency', 500, 300)
+            cv2.imshow('Rotational Saliency', vis2)
 
-            cv2.imshow('Rotational Saliency', overlay2)
-
-
-            # plt.figure(figsize=(6, 6))
-            # plt.imshow(overlay)
-            # plt.axis("off")
-            # plt.title("Saliency Map Overlay")
-            # # plt.ion()
-            # # plt.show()
-            # plt.pause(0.001)
             k = cv2.waitKey(0)
 
 
-        
+        if k == ord('g'):
+            ###################### saliency (Grad-CAM, targeted) #########################
+            # Build model input from your cropped PIL image
+            input_tensor = saliency_transform(saliency_img).unsqueeze(0).to(device)
+
+            # Wrap (speed, angle) -> (N,2) so the lib sees a single tensor
+            wrapped = _ConcatOutputsWrapper(model).to(device).eval()
+
+            # Use the last conv before GAP (your helper)
+            target_module = _last_conv_before_gap_or_fallback(wrapped)
+
+            # Compute targeted Grad-CAM for speed (index 0) and steering (index 1)
+            with GradCAM(model=wrapped, target_layers=[target_module]) as cam:
+                cam_speed = cam(input_tensor=input_tensor, targets=[ClassifierOutputTarget(0)])
+                cam_angle = cam(input_tensor=input_tensor, targets=[ClassifierOutputTarget(1)])
+
+            # Make each CAM 2D
+            cam_speed_2d = _as_2d(cam_speed)
+            cam_angle_2d = _as_2d(cam_angle)
+
+            # Resize to crop and build overlays (same style as your Eigen-CAM block)
+            H, W = saliency_img.height, saliency_img.width
+            cam_speed_resized = cv2.resize(cam_speed_2d, (W, H), interpolation=cv2.INTER_CUBIC)
+            cam_angle_resized = cv2.resize(cam_angle_2d, (W, H), interpolation=cv2.INTER_CUBIC)
+
+            original_np  = np.array(saliency_img) / 255.0
+            original_rgb = np.stack([original_np]*3, axis=-1)
+
+            overlay_speed  = np.clip(0.5 * original_rgb + 0.5 * cm.jet(cam_speed_resized)[..., :3], 0, 1)
+            overlay_angle  = np.clip(0.5 * original_rgb + 0.5 * cm.jet(cam_angle_resized)[..., :3], 0, 1)
+
+            # Show: use distinct window titles so you can compare
+            cv2.namedWindow('Linear Saliency (Grad-CAM)', cv2.WINDOW_NORMAL)
+            vis1 = cv2.resize(overlay_speed, dsize=(480, 240), interpolation=cv2.INTER_CUBIC)
+            cv2.resizeWindow('Linear Saliency (Grad-CAM)', 500, 300)
+            cv2.imshow('Linear Saliency (Grad-CAM)', vis1)
+
+            cv2.namedWindow('Rotational Saliency (Grad-CAM)', cv2.WINDOW_NORMAL)
+            vis2 = cv2.resize(overlay_angle, dsize=(480, 240), interpolation=cv2.INTER_CUBIC)
+            cv2.resizeWindow('Rotational Saliency (Grad-CAM)', 500, 300)
+            cv2.imshow('Rotational Saliency (Grad-CAM)', vis2)
+
+            k = cv2.waitKey(0)
+
 
         if k == 113:
             cv2.destroyAllWindows()
