@@ -17,6 +17,8 @@ from geometry_msgs.msg import Twist, TwistStamped
 from cv_bridge import CvBridge
 import os
 import time
+import random
+import PIL
 
 import sys
 sys.path.append('/workspace/ros_mamba_ws/visionMambaPaper')
@@ -69,8 +71,8 @@ class vim_cmd_publisher(Node):
         self.model_dual_steering_path = os.path.join(Model_Path, self.lane_following_cmd3)
         # print(sys.path)
         self.model = ViM(
-            img_size = (160, 320),
-            patch_size = (20, 20), #8, #(11, 10)
+            img_size = (180, 400),
+            patch_size = (9, 20), #8, #(11, 10)
             # stride=(10, 20), #(5, 5),
             # stride=() # smaller for more detail (5, 5)
             num_classes = 2,
@@ -84,8 +86,8 @@ class vim_cmd_publisher(Node):
         )
         # print(self.model)
         self.model_pullin = ViM(
-            img_size = (160, 320),
-            patch_size = (20, 20), #8, #(11, 10)
+            img_size = (180, 400),
+            patch_size = (9, 20), #8, #(11, 10)
             # stride=(10, 20), #(5, 5),
             # stride=() # smaller for more detail (5, 5)
             num_classes = 2,
@@ -99,8 +101,8 @@ class vim_cmd_publisher(Node):
         )
 
         self.model_reverse = ViM(
-            img_size = (160, 320),
-            patch_size = (20, 20), #8, #(11, 10)
+            img_size = (180, 400),
+            patch_size = (9, 20), #8, #(11, 10)
             # stride=(10, 20), #(5, 5),
             # stride=() # smaller for more detail (5, 5)
             num_classes = 2,
@@ -114,8 +116,8 @@ class vim_cmd_publisher(Node):
         )
 
         self.model_dual_steering = ViM(
-            img_size = (160, 320),
-            patch_size = (20, 20), #8, #(11, 10)
+            img_size = (180, 400),
+            patch_size = (9, 20), #8, #(11, 10)
             # stride=(10, 20), #(5, 5),
             # stride=() # smaller for more detail (5, 5)
             num_classes = 2,
@@ -154,9 +156,9 @@ class vim_cmd_publisher(Node):
         self.publisher4 = self.create_publisher(String, "camera_node_info", 10)
         self.publisher5 = self.create_publisher(String, "nn_model_names", 10)
         nn_model_names_list = [
-            f"cmd lan_follow: {self.lane_following_cmd0}",
-            f"cmd pullin: {self.lane_following_cmd1}",
-            f"cmd reverse: {self.lane_following_cmd2}",
+            f"cmd7: {self.lane_following_cmd0}",
+            f"cmd8: {self.lane_following_cmd1}",
+            f"cmd9: {self.lane_following_cmd2}",
         ]
         nn_model_names_msg = String()
         nn_model_names_msg.data = ",".join(nn_model_names_list)
@@ -168,64 +170,81 @@ class vim_cmd_publisher(Node):
         self.pre_img = np.zeros([1,240,400])
         self.cur_img = np.zeros([1,240,400])
 
+        torch.manual_seed(1234)
+        np.random.seed(1234)
+        random.seed(1234)
+        if device == "cuda":
+            torch.cuda.manual_seed_all(1234)
+
+        torch.backends.cuda.matmul.allow_tf32 = False
+        torch.backends.cudnn.allow_tf32 = False
+        torch.use_deterministic_algorithms(True)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        torch.set_float32_matmul_precision('high')
+
 
     def img_listener_callback(self, msg):
         #print("Got something!")
         cv_img = bridge.imgmsg_to_cv2(msg, desired_encoding='passthrough')
-        cv_img_h, cv_img_w = cv_img.shape
-        #print(cv_img.shape)
-        resize_h=int(cv_img_h*0.2)
-        img=cv2.resize(cv_img[resize_h:,:],(480,240))
-        img=img[80:, 80:400]
-        img= np.expand_dims(img, axis=0)
-        img = img.astype('float32')
-        # self.get_logger().info("image shape")
-        # print(img.shape)
+        
+        img=cv2.resize(cv_img[104:,:],(480,240))
+            
+        cropped_img = img[60:, 40:440]
+        cropped_img = PIL.Image.fromarray(np.uint8(cropped_img), mode='L')
 
-        img = appliedTransform(img)
-        img = rearrange(img, 'w c h -> 1 c h w')
+        cropped_img = appliedTransform(cropped_img)
+        cropped_img = rearrange(cropped_img, "c h w -> 1 c h w")
+
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        img = img.to(device)
+        img = cropped_img.to(device)
         
         self.cur_img = img
         speed = 0.0
         steering_angle = 0.0
 
-        if self.driving_mode == 7:
+        with torch.inference_mode(), torch.autocast('cuda', enabled=False):
 
-            speed, steering_angle = self.model(img)
-            speed = speed.item() * self.speed_multi
-            steering_angle = steering_angle.item() * 0.3
-            # print(speed)
-            #self.get_logger().info("CV Image resize_h %d" % (resize_h))
-            self.get_logger().info(f"speed: {speed}, steering: {steering_angle}")
-        if self.driving_mode == 8:
-
-            speed, steering_angle = self.model_pullin(img)
-            speed = speed.item() * self.speed_multi
-            steering_angle = steering_angle.item() * 0.3
-            # print(speed)
-            #self.get_logger().info("CV Image resize_h %d" % (resize_h))
-            self.get_logger().info(f"speed: {speed}, steering: {steering_angle}")
-        if self.driving_mode == 9:
-
-            speed, steering_angle = self.model_reverse(img)
-            speed = speed.item() * self.speed_multi
-            steering_angle = steering_angle.item() * 0.3
-            # print(speed)
-            #self.get_logger().info("CV Image resize_h %d" % (resize_h))
-            self.get_logger().info(f"speed: {speed}, steering: {steering_angle}")
-        if self.driving_mode == 10:
-
-            speed, steering_angle = self.model_dual_steering(img)
-            speed = speed.item() * self.speed_multi
-            steering_angle = steering_angle.item() * 0.3
-            # print(speed)
-            #self.get_logger().info("CV Image resize_h %d" % (resize_h))
-            self.get_logger().info(f"speed: {speed}, steering: {steering_angle}")
-
-        self.nn_linear = speed
-        self.nn_angular = steering_angle
+            if self.driving_mode == 7:
+    
+                speed, steering_angle = self.model(img)
+                speed = speed.item() * self.speed_multi
+                steering_angle = steering_angle.item() * 0.3
+                # print(speed)
+                #self.get_logger().info("CV Image resize_h %d" % (resize_h))
+                self.get_logger().info(f"speed: {speed}, steering: {steering_angle}")
+                self.nn_linear = speed
+                self.nn_angular = steering_angle
+            if self.driving_mode == 8:
+    
+                speed, steering_angle = self.model_pullin(img)
+                speed = speed.item() * self.speed_multi
+                steering_angle = steering_angle.item() * 0.3
+                # print(speed)
+                #self.get_logger().info("CV Image resize_h %d" % (resize_h))
+                self.get_logger().info(f"speed: {speed}, steering: {steering_angle}")
+                self.nn_linear = speed
+                self.nn_angular = steering_angle
+            if self.driving_mode == 9:
+    
+                speed, steering_angle = self.model_reverse(img)
+                speed = speed.item() * self.speed_multi
+                steering_angle = steering_angle.item() * 0.3
+                # print(speed)
+                #self.get_logger().info("CV Image resize_h %d" % (resize_h))
+                self.get_logger().info(f"speed: {speed}, steering: {steering_angle}")
+                self.nn_linear = speed
+                self.nn_angular = steering_angle
+            if self.driving_mode == 10:
+    
+                speed, steering_angle = self.model_dual_steering(img)
+                speed = speed.item() * self.speed_multi
+                steering_angle = steering_angle.item() * 0.3
+                # print(speed)
+                #self.get_logger().info("CV Image resize_h %d" % (resize_h))
+                self.get_logger().info(f"speed: {speed}, steering: {steering_angle}")
+                self.nn_linear = speed
+                self.nn_angular = steering_angle
         
 
     def mode_listener_callback(self, msg):
