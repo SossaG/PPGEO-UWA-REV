@@ -60,7 +60,7 @@ from resnet_encoder import ResnetEncoder                       # :contentReferen
 from depth_decoder import DepthDecoder                         # :contentReference[oaicite:2]{index=2}
 
 #----------------------------------------------------------------------------------------------
-
+from build_stage1_as_monodepth2 import build_monodepth2_pair_from_stage1
 
 
 transform = transforms.Compose(
@@ -504,19 +504,16 @@ if __name__ == "__main__":
             ###################### Depth Map For Default DepthNet#########################
             device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-            # (Optional) ensure local imports work if running from elsewhere
-            sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-            # Build encoder/decoder (avoid torchvision weights warning explicitly)
-            enc = ResnetEncoder(num_layers=34, pretrained=False).to(device).eval()
+            #  Build encoder/decoder exactly like monodepth2 test_simple.py
+            enc = ResnetEncoder(num_layers=18, pretrained=False).to(device).eval()
             dec = DepthDecoder(num_ch_enc=enc.num_ch_enc, scales=range(4)).to(device).eval()
 
             # Load state dicts
             ckpt = torch.load("models_to_test/ppgeo_depth.ckpt", map_location="cpu")
             enc.load_state_dict({k: v for k, v in ckpt["depth_encoder_state_dict"].items()
-                                if k in enc.state_dict()}, strict=False)
+                                if k in enc.state_dict()}, strict=True)
             dec.load_state_dict({k: v for k, v in ckpt["depth_decoder_state_dict"].items()
-                                if k in dec.state_dict()}, strict=False)
+                                if k in dec.state_dict()}, strict=True)
 
             def to_pil(img_any):
                 """Accepts PIL.Image, numpy array (RGB or BGR), or a path -> returns PIL.Image RGB."""
@@ -545,11 +542,23 @@ if __name__ == "__main__":
             # img = cv2.imread("sample_eglinton_frame.png")  # np BGR
             # img = Image.open("sample_eglinton_frame.png")  # PIL
 
+            
+
+            """print(f"PIL img size : {img_pil.size}")
+            ow, oh = img_pil.size           # (width, height)
+            print(ckpt["depth_encoder_state_dict"].keys())
+
+            feed_height = ckpt["depth_encoder_state_dict"]['height']
+            feed_width = ckpt['width']
+            print(f"model trained height: {feed_height}, width: {feed_width}")"""
+
+
+
             img_pil = to_pil(img)           # <-- the important conversion
             ow, oh = img_pil.size           # (width, height)
 
-            # Resize to your training feed size (typical Monodepth2: 640x192)
-            feed_w, feed_h = 640, 192
+            # Resize to your training feed size (i checked and ppgeo does this size)
+            feed_w, feed_h = 320, 160
             inp = img_pil.resize((feed_w, feed_h), Image.LANCZOS)
             inp = transforms.ToTensor()(inp)[None].to(device)
 
@@ -571,57 +580,93 @@ if __name__ == "__main__":
 
             # Show with OpenCV (expects BGR)
             overlay_angle = cv2.cvtColor(color_rgb, cv2.COLOR_RGB2BGR)
-            cv2.namedWindow('ppgeo depth map', cv2.WINDOW_NORMAL)
+            cv2.namedWindow('ppgeo default depth map', cv2.WINDOW_NORMAL)
             vis2 = cv2.resize(overlay_angle, dsize=(480, 240), interpolation=cv2.INTER_CUBIC)
-            cv2.resizeWindow('ppgeo depth map', 500, 300)
-            cv2.imshow('ppgeo depth map', vis2)
+            cv2.resizeWindow('ppgeo default depth map', 500, 300)
+            cv2.imshow('ppgeo default depth map', vis2)
 
             k = cv2.waitKey(0)
 
 
         if k == ord('g'):
-            ###################### saliency (Grad-CAM, targeted) #########################
-            # Build model input from your cropped PIL image
-            input_tensor = saliency_transform(saliency_img).unsqueeze(0).to(device)
+            ###################### custom ppgeo depth map #########################
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-            # Wrap (speed, angle) -> (N,2) so the lib sees a single tensor
-            wrapped = _ConcatOutputsWrapper(model).to(device).eval()
+            #  Build encoder/decoder exactly like monodepth2 test_simple.py (USING MY HELPER TO CONVER PREFIXES)
+            enc, dec = build_monodepth2_pair_from_stage1("models_to_test/stage1_custom_ppgeo.ckpt", device)
 
-            # Use the last conv before GAP (your helper)
-            target_module = _last_conv_before_gap_or_fallback(wrapped)
+            def to_pil(img_any):
+                """Accepts PIL.Image, numpy array (RGB or BGR), or a path -> returns PIL.Image RGB."""
+                if isinstance(img_any, Image.Image):
+                    return img_any.convert("RGB")
+                if isinstance(img_any, str):
+                    # path
+                    pil_img = Image.open(img_any).convert("RGB")
+                    return pil_img
+                if isinstance(img_any, np.ndarray):
+                    # HxWxC or HxW
+                    if img_any.ndim == 2:  # grayscale
+                        pil_img = Image.fromarray(img_any.astype(np.uint8), mode="L").convert("RGB")
+                        return pil_img
+                    if img_any.shape[2] == 3:
+                        # assume BGR if it came from OpenCV; try detect by heuristic if you want
+                        # If your upstream is RGB arrays, comment out the cvtColor below.
+                        rgb = cv2.cvtColor(img_any, cv2.COLOR_BGR2RGB)
+                        return Image.fromarray(rgb)
+                    raise ValueError("Unsupported numpy image shape:", img_any.shape)
+                raise TypeError(f"Unsupported img type: {type(img_any)}")
 
-            # Compute targeted Grad-CAM for speed (index 0) and steering (index 1)
-            with GradCAM(model=wrapped, target_layers=[target_module]) as cam:
-                cam_speed = cam(input_tensor=input_tensor, targets=[ClassifierOutputTarget(0)])
-                cam_angle = cam(input_tensor=input_tensor, targets=[ClassifierOutputTarget(1)])
+            # ---- EXPECT an `img` variable from your pipeline ----
+            # Example fallbacks for testing:
+            # img = "sample_eglinton_frame.png"   # path
+            # img = cv2.imread("sample_eglinton_frame.png")  # np BGR
+            # img = Image.open("sample_eglinton_frame.png")  # PIL
 
-            # Make each CAM 2D
-            cam_speed_2d = _as_2d(cam_speed)
-            cam_angle_2d = _as_2d(cam_angle)
+            
 
-            # Resize to crop and build overlays (same style as your Eigen-CAM block)
-            H, W = saliency_img.height, saliency_img.width
-            cam_speed_resized = cv2.resize(cam_speed_2d, (W, H), interpolation=cv2.INTER_CUBIC)
-            cam_angle_resized = cv2.resize(cam_angle_2d, (W, H), interpolation=cv2.INTER_CUBIC)
+            """print(f"PIL img size : {img_pil.size}")
+            ow, oh = img_pil.size           # (width, height)
+            print(ckpt["depth_encoder_state_dict"].keys())
 
-            original_np  = np.array(saliency_img) / 255.0
-            original_rgb = np.stack([original_np]*3, axis=-1)
+            feed_height = ckpt["depth_encoder_state_dict"]['height']
+            feed_width = ckpt['width']
+            print(f"model trained height: {feed_height}, width: {feed_width}")"""
 
-            overlay_speed  = np.clip(0.5 * original_rgb + 0.5 * cm.jet(cam_speed_resized)[..., :3], 0, 1)
-            overlay_angle  = np.clip(0.5 * original_rgb + 0.5 * cm.jet(cam_angle_resized)[..., :3], 0, 1)
 
-            # Show: use distinct window titles so you can compare
-            cv2.namedWindow('Linear Saliency (Grad-CAM)', cv2.WINDOW_NORMAL)
-            vis1 = cv2.resize(overlay_speed, dsize=(480, 240), interpolation=cv2.INTER_CUBIC)
-            cv2.resizeWindow('Linear Saliency (Grad-CAM)', 500, 300)
-            cv2.imshow('Linear Saliency (Grad-CAM)', vis1)
 
-            cv2.namedWindow('Rotational Saliency (Grad-CAM)', cv2.WINDOW_NORMAL)
+            img_pil = to_pil(img)           # <-- the important conversion
+            ow, oh = img_pil.size           # (width, height)
+
+            # Resize to your training feed size (i checked and ppgeo does this size)
+            feed_w, feed_h = 320, 160
+            inp = img_pil.resize((feed_w, feed_h), Image.LANCZOS)
+            inp = transforms.ToTensor()(inp)[None].to(device)
+
+            with torch.no_grad():
+                feats = enc(inp)
+                outs = dec(feats)
+                disp = outs[("disp", 0)]
+                disp_big = torch.nn.functional.interpolate(
+                    disp, (oh, ow), mode="bilinear", align_corners=False
+                )
+                # min/max depth values are only for scaling; relative depth vis
+                _, depth = disp_to_depth(disp, 0.1, 100.0)
+
+            # Colourise disparity
+            m = disp_big[0, 0].cpu().numpy()
+            vmax = np.percentile(m, 95)
+            m = (m / (vmax + 1e-8)).clip(0, 1)
+            color_rgb = (cm.get_cmap("magma")(m)[..., :3] * 255).astype(np.uint8)
+
+            # Show with OpenCV (expects BGR)
+            overlay_angle = cv2.cvtColor(color_rgb, cv2.COLOR_RGB2BGR)
+            cv2.namedWindow('ppgeo custom depth map', cv2.WINDOW_NORMAL)
             vis2 = cv2.resize(overlay_angle, dsize=(480, 240), interpolation=cv2.INTER_CUBIC)
-            cv2.resizeWindow('Rotational Saliency (Grad-CAM)', 500, 300)
-            cv2.imshow('Rotational Saliency (Grad-CAM)', vis2)
+            cv2.resizeWindow('ppgeo custom depth map', 500, 300)
+            cv2.imshow('ppgeo custom depth map', vis2)
 
             k = cv2.waitKey(0)
+
 
 
         if k == 113:
