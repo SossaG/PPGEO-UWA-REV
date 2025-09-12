@@ -1,0 +1,12 @@
+{
+  "path": "models_to_test/ppgeo_depth.ckpt",
+  "load_mode": "weights_only",
+  "meta_keys": [],
+  "guess": null,
+  "num_params": null,
+  "top_prefix_counts": [],
+  "sample_params": [],
+  "notes": [
+    "Top-level keys: ['depth_encoder_state_dict', 'depth_decoder_state_dict']"
+  ]
+}
