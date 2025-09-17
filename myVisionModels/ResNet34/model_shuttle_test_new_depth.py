@@ -363,7 +363,12 @@ if __name__ == "__main__":
     Image_Paths = []
     All_Searchable_Folders = []
 
+    #generic lanefollowing example
     All_Searchable_Folders = [dirname("/media/sim/data/eglinton_datasorting_dual/sorted_eglinton_data/CIL_Dual_Cam_Stage2_B/lane_following/rosbag2_2024_09_03-10_06_24_0_7421-7571")]
+
+    #roundabout example
+    #All_Searchable_Folders = [dirname("/media/sim/data/eglinton_datasorting_dual/sorted_eglinton_data/CIL_Dual_Cam_Stage2_First_Half/roundabout_straight/rosbag2_2024_03_16-11_31_12_0_31144-31362")]
+   
     # All_Searchable_Folders = [dirname("/home/quirky/Documents/eglinton_datasorting_dual/sorted_eglinton_data/CIL_Dual_Cam_Stage2_B/pullout/")]
 
     
@@ -631,12 +636,13 @@ if __name__ == "__main__":
             feed_height = ckpt["depth_encoder_state_dict"]['height']
             feed_width = ckpt['width']
             print(f"model trained height: {feed_height}, width: {feed_width}")"""
+            
 
 
 
             img_pil = to_pil(img)           # <-- the important conversion
             ow, oh = img_pil.size           # (width, height)
-
+            print(f"PIL img size : {img_pil.size}")
             # Resize to your training feed size (i checked and ppgeo does this size)
             feed_w, feed_h = 320, 160
             inp = img_pil.resize((feed_w, feed_h), Image.LANCZOS)
