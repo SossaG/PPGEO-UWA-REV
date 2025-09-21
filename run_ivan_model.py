@@ -24,7 +24,8 @@ import sys
 sys.path.append('/workspace/ros_mamba_ws/ivanModel')
 
 # from shuttlebusTrain import ViM
-from models_ivan import ResNet34PilotNet
+from new_resnet_model import PPGeoNavModelGray, build_model_for_eglinton_gray
+
 
 
 bridge = CvBridge()
@@ -62,22 +63,34 @@ class ppgeo_publisher(Node):
             10)
         self.img_subscription  # prevent unused variable warning
         self.mode_subscription  # prevent unused variable warning
-        self.lane_following_cmd0 = "ResNet34_shuttlebus_custom_ppgeo_frozen_lane_following_finetune_1.0.pth"
+        self.lane_following_cmd0 = "ResNet34_shuttlebus_imagenet_unfrozen_lane_following_finetune_1.0.pth"
         self.model_path = os.path.join(Model_Path, self.lane_following_cmd0)
         self.lane_following_cmd1 = "ResNet34_shuttlebus_custom_ppgeo_unfrozen_lane_following_finetune_1.0.pth"
         self.model_pullin_path = os.path.join(Model_Path, self.lane_following_cmd1)
-        self.lane_following_cmd2 = "ResNet34_shuttlebus_imagenet_lane_following_finetune_1.0.pth"
+        self.lane_following_cmd2 = "ResNet34_shuttlebus_ppgeo_partial_lane_following_finetune_1.0.pth"
         self.model_reverse_path = os.path.join(Model_Path, self.lane_following_cmd2)
-        self.lane_following_cmd3 = "ResNet34_shuttlebus_ppgeo_partial_lane_following_finetune_1.0.pth"
+        self.lane_following_cmd3 = "ResNet34_shuttle_custom_ppgeo_frozen_lane_following_finetune_1.0_40_0.0021_0.4455_0.2174.pth"
         self.model_dual_steering_path = os.path.join(Model_Path, self.lane_following_cmd3)
         # print(sys.path)
-        self.model = ResNet34PilotNet()
+        self.model = build_model_for_eglinton_gray(
+                pretrain_type="scratch",   # important: we're restoring from your .pth, not re-pretraining here
+                freeze_mode="unfrozen",
+                normalize=False
+            ).to(device)
         # print(self.model)
-        self.model_pullin = ResNet34PilotNet() 
+        self.model_pullin =  build_model_for_eglinton_gray(
+                pretrain_type="scratch",   # important: we're restoring from your .pth, not re-pretraining here
+                freeze_mode="unfrozen",
+                normalize=False
+            ).to(device)
 
-        self.model_reverse = ResNet34PilotNet() 
+        self.model_reverse = build_model_for_eglinton_gray(
+            pretrain_type="scratch",   # important: we're restoring from your .pth, not re-pretraining here
+            freeze_mode="unfrozen",
+            normalize=False
+        ).to(device) 
 
-        self.model_dual_steering = ResNet34PilotNet() 
+        self.model_dual_steering = re
 
         self.nn_linear=0.1
         self.nn_angular=0.0
@@ -205,9 +218,9 @@ class ppgeo_publisher(Node):
         #print("Got something!")
         self.speed_mode=msg.data
         if self.speed_mode==0:
-            self.speed_multi=4.0
+            self.speed_multi=2.0
         else:
-            self.speed_multi=5.4
+            self.speed_multi=3.0
 
     def publish_msg(self):
         msg = Twist()
