@@ -7,8 +7,7 @@ from PIL import Image
 
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
-from new_resnet_model import build_model_for_eglinton_gray
-from new_resnet_model import PPGeoNavModelGray
+from new_resnet_model2 import build_model_for_eglinton, PPGeoNavModel
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -183,14 +182,14 @@ if __name__ == "__main__":
                 "resnet34.ckpt" if args.pretrain_type == "ppgeo"
                 else "epoch=19-last-custom-ppgeo-trial1-stripped.ckpt"
             )
-            model = build_model_for_eglinton_gray(
+            model = build_model_for_eglinton(
                 pretrain_type=args.pretrain_type,
                 freeze_mode=args.freeze_mode,   # "frozen" | "partial" | "unfrozen"
                 normalize=False,                # keep False if your transforms handle it
                 ckpt_path=ckpt_path,
             )
         elif args.pretrain_type == "imagenet":
-            model = build_model_for_eglinton_gray(
+            model = build_model_for_eglinton(
                 pretrain_type="imagenet",
                 freeze_mode=args.freeze_mode,
                 normalize=False,
@@ -235,7 +234,7 @@ if __name__ == "__main__":
         model_name = args.model_type
     print(model_name)
     
-    writer = SummaryWriter(log_dir=f"runs_new/{pretrain_type}_{freeze_mode}_{model_name}_{dataset_prop}")
+    writer = SummaryWriter(log_dir=f"runs_new2/{pretrain_type}_{freeze_mode}_{model_name}_{dataset_prop}")
 
     if args.fine_tune_model:
         lane_follow_files = [
@@ -586,7 +585,7 @@ if __name__ == "__main__":
             )
         )
         #save in an organised folder of checkpoints for that run
-        checkpoint_dir = f"checkpoints_new/{pretrain_type}_{freeze_mode}_{model_name}_{dataset_prop}"
+        checkpoint_dir = f"checkpoints_new2/{pretrain_type}_{freeze_mode}_{model_name}_{dataset_prop}"
         os.makedirs(checkpoint_dir, exist_ok=True)
 
         if best_loss > total_epoch_loss:
@@ -616,8 +615,8 @@ if __name__ == "__main__":
     print(f'training finished at: {end_time}')
 
 
-    os.makedirs("finished_models_new", exist_ok=True)
+    os.makedirs("finished_models_new2", exist_ok=True)
 
-    torch.save(model.state_dict(), f'finished_models_new/ResNet34_shuttlebus_{pretrain_type}_{freeze_mode}_{model_name}_{dataset_prop}.pth')
+    torch.save(model.state_dict(), f'finished_models_new2/ResNet34_shuttlebus_{pretrain_type}_{freeze_mode}_{model_name}_{dataset_prop}.pth')
     writer.flush()
     writer.close()
