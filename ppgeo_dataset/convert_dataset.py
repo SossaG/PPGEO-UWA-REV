@@ -4,14 +4,11 @@ from pathlib import Path
 
 # === CONFIG ===
 INPUT_DIR = "/media/sim/data/ivan/ppgeo_dataset/extracted_frames"
-OUTPUT_DIR = "/media/sim/data/ivan/ppgeo_dataset/converted_dataset"
-CROP_TOP = 10    # PPGeo crops top 10px to match 160 height
-CROP_BOTTOM = 170  # i.e., crop to (0, 10, 320, 170)
-RESIZE = (320, 160)
+OUTPUT_DIR = "/media/sim/data/ivan/ppgeo_dataset/converted_dataset_rgb"
+RESIZE = (320, 180)
 
 def process_image(in_path, out_path):
-    img = Image.open(in_path).convert("L")
-    img = img.convert("RGB")
+    img = Image.open(in_path) 
     img = img.resize((320, 160), resample=Image.LANCZOS) #high qual downsampling
     out_path.parent.mkdir(parents=True, exist_ok=True)
     img.save(out_path)

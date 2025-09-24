@@ -36,6 +36,7 @@ finished_models_new/
 downloads/
 extracted_frames/
 converted_dataset/
+converted_dataset_rgb/
 yt_cache/
 data/
 log/
