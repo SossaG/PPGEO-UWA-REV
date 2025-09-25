@@ -23,8 +23,7 @@ def pil_loader(path):
 	# (https://github.com/python-pillow/Pillow/issues/835)
 	with open(path, 'rb') as f:
 		with Image.open(f) as img:
-			return img.convert('L').convert('RGB')
-
+			return img.convert('RGB')
 
 
 class YTB_Data(Dataset):
@@ -93,9 +92,11 @@ class YTB_Data(Dataset):
 
 		if do_color_aug:
 			color_aug = T.Compose([
-				T.RandomApply([GaussianBlur([.1, 2.])], p=0.5)
-			])
-
+            T.RandomApply([
+                T.ColorJitter(self.brightness, self.contrast, self.saturation, self.hue)  # not strengthened
+            ], p=0.8),
+            T.RandomGrayscale(p=0.5),
+            T.RandomApply([GaussianBlur([.1, 2.])], p=0.5)])
 		else:
 			color_aug = (lambda x: x)
 
@@ -106,5 +107,3 @@ class YTB_Data(Dataset):
 			del inputs[("color_aug", i, -1)]
 
 		return inputs
-
-

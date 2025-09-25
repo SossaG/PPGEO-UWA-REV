@@ -10,7 +10,7 @@ next_path = []
 
 video_idx = []
 
-interval = 10
+interval = 1
 
 
 #for folder_index in tqdm.tqdm(range(88)):
