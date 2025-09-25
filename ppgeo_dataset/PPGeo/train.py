@@ -22,6 +22,49 @@ class PPGeoEngine(pl.LightningModule):
 		self.config = config
 		self.stage = self.stage
 		self.model = Monodepth(stage = self.stage, batch_size=config.batch_size)
+		if self.stage == 1 and getattr(config, "ckpt", None):
+			print(f"[Warmstart][Stage1] Loading depth nets from {config.ckpt}")
+			ckpt = torch.load(config.ckpt, map_location="cpu")
+
+			# Expected PPGeo stage-1 export with two sub dicts
+			enc_sd = ckpt.get("depth_encoder_state_dict", {})
+			dec_sd = ckpt.get("depth_decoder_state_dict", {})
+
+			missing, unexpected = self.model.depth_encoder.load_state_dict(enc_sd, strict = False)
+			print(f"[Warmstart]  encoder Missing keys: {len(missing)}  Unexpected: {len(unexpected)}")
+
+			enc_keys_loaded = set(enc_sd.keys())
+			enc_keys_model = set(self.model.depth_encoder.state_dict().keys())
+			print(f"[Debug] Encoder: Loaded {len(enc_keys_loaded)} keys, Model expects {len(enc_keys_model)} keys")
+			print(f"[Debug] Encoder: Intersection {len(enc_keys_loaded & enc_keys_model)} keys")
+
+			# Check a few example layers for identical shape
+			for k in list(enc_keys_loaded & enc_keys_model)[:5]:
+				w_loaded = enc_sd[k].shape
+				w_model = self.model.depth_encoder.state_dict()[k].shape
+				print(f"[Debug] Encoder layer '{k}': loaded {w_loaded}, model {w_model}")
+
+
+
+			missing, unexpected = self.model.depth_decoder.load_state_dict(dec_sd, strict = False)
+			print(f"[Warmstart]  decoder Missing keys: {len(missing)}  Unexpected: {len(unexpected)}")
+
+			# After loading decoder
+			dec_keys_loaded = set(dec_sd.keys())
+			dec_keys_model = set(self.model.depth_decoder.state_dict().keys())
+			print(f"[Debug] Decoder: Loaded {len(dec_keys_loaded)} keys, Model expects {len(dec_keys_model)} keys")
+			print(f"[Debug] Decoder: Intersection {len(dec_keys_loaded & dec_keys_model)} keys")
+
+			for k in list(dec_keys_loaded & dec_keys_model)[:5]:
+				w_loaded = dec_sd[k].shape
+				w_model = self.model.depth_decoder.state_dict()[k].shape
+				print(f"[Debug] Decoder layer '{k}': loaded {w_loaded}, model {w_model}")
+
+			test_layer = "encoder.layer3.0.conv1.weight"
+			print(f"[Check] {test_layer}: mean loaded={enc_sd[test_layer].float().mean():.6f}, "
+				f"mean in-model={self.model.depth_encoder.state_dict()[test_layer].float().mean():.6f}")
+
+
 		if self.stage == 2:
 			self.motionnet = MotionNet()
 			path_to_ckpt_file = config.ckpt
