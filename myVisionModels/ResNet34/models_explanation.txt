@@ -1,9 +1,0 @@
-custom ppgeo
-ppgeo (deafult international dataset)
-
-frozen
-unfrozen
-partially frozen
-
-ppgeo
-imagenet (deafult pretraining)

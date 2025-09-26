@@ -1,0 +1,27 @@
+custom ppgeo
+ppgeo (deafult international dataset)
+
+frozen
+unfrozen
+partially frozen
+
+ppgeo
+imagenet (deafult pretraining)
+
+
+to view run logs:
+conda activate ivan2
+tensorboard --logdir=runs_new --port=6006
+
+
+Recreate with:
+
+conda env create -f ivan3.yml
+conda create -n ivan3_clone --file ivan3-conda-lock.txt -y
+conda activate ivan3_clone
+pip install -r ivan3-pip-lock.txt
+
+That’s it—ivan3.yml for easy rebuilds, and the lock files if you want 1:1 reproducibility.
+
+
+python3 ivan_shuttlebusTrain.py ppgeo unfrozen lane_following 1.0 --fine_tune_model
