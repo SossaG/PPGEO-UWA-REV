@@ -37,6 +37,8 @@ downloads/
 extracted_frames/
 converted_dataset/
 converted_dataset_rgb/
+converted_dataset_rgb_bigger/
+
 yt_cache/
 data/
 log/

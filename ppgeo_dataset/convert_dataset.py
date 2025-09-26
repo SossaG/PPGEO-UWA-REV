@@ -4,12 +4,11 @@ from pathlib import Path
 
 # === CONFIG ===
 INPUT_DIR = "/media/sim/data/ivan/ppgeo_dataset/extracted_frames"
-OUTPUT_DIR = "/media/sim/data/ivan/ppgeo_dataset/converted_dataset_rgb"
-RESIZE = (320, 180)
+OUTPUT_DIR = "/media/sim/data/ivan/ppgeo_dataset/converted_dataset_rgb_bigger"
 
 def process_image(in_path, out_path):
     img = Image.open(in_path) 
-    img = img.resize((320, 160), resample=Image.LANCZOS) #high qual downsampling
+    img = img.resize((480, 240), resample=Image.LANCZOS) #high qual downsampling
     out_path.parent.mkdir(parents=True, exist_ok=True)
     img.save(out_path)
 
