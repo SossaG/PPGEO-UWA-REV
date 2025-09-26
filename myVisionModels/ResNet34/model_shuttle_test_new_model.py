@@ -14,6 +14,10 @@ from torch.utils.tensorboard import SummaryWriter
 
 import numpy as np
 
+import matplotlib
+matplotlib.use("Agg")          # put this before any other matplotlib imports
+import matplotlib.cm as cm
+
 import cv2
 import glob
 import os
@@ -29,8 +33,7 @@ import argparse
 # from torchsummary import summary
 # import time
 
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
+
 import random
 
 
@@ -53,7 +56,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("Load model from checkpoint")
     parser.add_argument("--load_model", action="store_true")
     #parser.add_argument("model_name", default="checkpoints/custom_ppgeo_unfrozen_lane_following_finetune_1.0/ResNet34_shuttle_custom_ppgeo_unfrozen_lane_following_finetune_1.0_1_0.0012_0.4518_0.5270.pth", type=str, nargs='?')
-    parser.add_argument("model_name", default="finished_models_new/ResNet34_shuttlebus_ppgeo_frozen_lane_following_1.0.pth", type=str, nargs='?')
+    parser.add_argument("model_name", default="finished_models_new/ResNet34_shuttlebus_custom_ppgeo_frozen_lane_following_finetune_1.0.pth", type=str, nargs='?')
     # parser.add_argument("model_fine_name", default="VMamba_shuttle_lane_following_13_0.0003_0.9026_0.8934.pth", type=str, nargs='?')
     """parser.add_argument("model_pullin_name", default="VMamba_shuttle_pullin_16_0.0007_0.9070_0.8310.pth", type=str, nargs='?')
     parser.add_argument("model_reverse_name", default="VMamba_shuttle_reverse_21_0.0004_0.9536_0.9929.pth", type=str, nargs='?')

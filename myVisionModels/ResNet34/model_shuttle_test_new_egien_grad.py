@@ -13,6 +13,11 @@ from torch.utils.tensorboard import SummaryWriter
 
 import numpy as np
 
+import matplotlib
+matplotlib.use("Agg")          # put this before any other matplotlib imports
+import matplotlib.cm as cm
+
+
 import cv2
 import glob
 import os
@@ -28,8 +33,7 @@ import argparse
 # from torchsummary import summary
 # import time
 
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
+
 import random
 
 

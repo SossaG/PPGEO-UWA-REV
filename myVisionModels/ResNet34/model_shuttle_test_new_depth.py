@@ -13,6 +13,10 @@ from torch.utils.tensorboard import SummaryWriter
 
 import numpy as np
 
+import matplotlib
+matplotlib.use("Agg")          # put this before any other matplotlib imports
+import matplotlib.cm as cm
+
 import cv2
 import glob
 import os
@@ -32,8 +36,7 @@ import argparse
 # from torchsummary import summary
 # import time
 
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
+
 import random
 
 
@@ -78,7 +81,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("Load model from checkpoint")
     parser.add_argument("--load_model", action="store_true")
     #parser.add_argument("model_name", default="checkpoints/custom_ppgeo_unfrozen_lane_following_finetune_1.0/ResNet34_shuttle_custom_ppgeo_unfrozen_lane_following_finetune_1.0_1_0.0012_0.4518_0.5270.pth", type=str, nargs='?')
-    parser.add_argument("model_name", default="finished_models/ResNet34_shuttlebus_custom_ppgeo_frozen_lane_following_finetune_1.0.pth", type=str, nargs='?')
+    parser.add_argument("model_name", default="finished_models/ResNet34_shuttlebus_ppgeo_frozen_lane_following_finetune_1.0.pth", type=str, nargs='?')
     # parser.add_argument("model_fine_name", default="VMamba_shuttle_lane_following_13_0.0003_0.9026_0.8934.pth", type=str, nargs='?')
     """parser.add_argument("model_pullin_name", default="VMamba_shuttle_pullin_16_0.0007_0.9070_0.8310.pth", type=str, nargs='?')
     parser.add_argument("model_reverse_name", default="VMamba_shuttle_reverse_21_0.0004_0.9536_0.9929.pth", type=str, nargs='?')
@@ -160,6 +163,53 @@ if __name__ == "__main__":
         pt_idx = pt_model_list.index(args.model_name)
     except ValueError:
         pt_idx = 0
+
+    def prepare_input_from_any(img_any, device, feed_size=(320,160), assume_bgr=False, norm="raw"):
+        """
+        img_any: PIL.Image | np.ndarray(HxW or HxWx3) | str path
+        - Forces grayscale->RGB by channel replication
+        - Avoids accidental BGR->RGB on already-grayscale images
+        - Applies either raw [0,1] or ImageNet normalisation (pick ONE and use it for BOTH models)
+        """
+        # 1) get PIL RGB without colour flips
+        if isinstance(img_any, str):
+            im = Image.open(img_any).convert("L")  # read as grayscale to be explicit
+        elif isinstance(img_any, Image.Image):
+            im = img_any.convert("L")              # force grayscale
+        elif isinstance(img_any, np.ndarray):
+            if img_any.ndim == 2:
+                im = Image.fromarray(img_any.astype(np.uint8), mode="L")
+            elif img_any.ndim == 3 and img_any.shape[2] == 3:
+                # if upstream gave colour, collapse to grayscale deterministically
+                # (so both models see identical grayscale content)
+                # convert to L via PIL (handles dtype properly)
+                im = Image.fromarray(img_any[..., ::-1] if assume_bgr else img_any).convert("L")
+            else:
+                raise ValueError(f"Unsupported numpy image with shape {img_any.shape}")
+        else:
+            raise TypeError(f"Unsupported img type: {type(img_any)}")
+
+        # 2) replicate to 3 channels (Monodepth2 ResNet expects 3)
+        im = im.convert("RGB")
+
+        # 3) resize exactly the same way for both
+        feed_w, feed_h = feed_size
+        im = im.resize((feed_w, feed_h), Image.LANCZOS)
+
+        # 4) tensor + normalisation
+        t = transforms.ToTensor()(im)[None].to(device)  # [1,3,H,W] in [0,1]
+        if norm == "imagenet":
+            mean = torch.tensor([0.485, 0.456, 0.406], device=device).view(1,3,1,1)
+            std  = torch.tensor([0.229, 0.224, 0.225], device=device).view(1,3,1,1)
+            t = (t - mean) / std
+        elif norm == "raw":
+            pass
+        else:
+            raise ValueError("norm must be 'raw' or 'imagenet'")
+
+        # 5) quick debug
+        # print("inp stats:", t.min().item(), t.mean().item(), t.max().item())
+        return t
 
     def _reload_model_from_path(pt_model_path: str):
         """Reload a ResNet34PilotNet from a given checkpoint path."""
@@ -364,12 +414,18 @@ if __name__ == "__main__":
     All_Searchable_Folders = []
 
     #generic lanefollowing example
-    All_Searchable_Folders = [dirname("/media/sim/data/eglinton_datasorting_dual/sorted_eglinton_data/CIL_Dual_Cam_Stage2_B/lane_following/rosbag2_2024_09_03-10_06_24_0_7421-7571")]
-
+    #All_Searchable_Folders = [dirname("/media/sim/data/eglinton_datasorting_dual/sorted_eglinton_data/CIL_Dual_Cam_Stage2_B/lane_following/rosbag2_2024_09_03-10_06_24_0_7421-7571")]
+    All_Searchable_Folders = [dirname("/media/sim/data/eglinton_datasorting_dual/sorted_eglinton_data/CIL_Dual_Cam_Stage2_B/lane_following/rosbag2_2025_02_21-14_05_53_0")]
     #roundabout example
     #All_Searchable_Folders = [dirname("/media/sim/data/eglinton_datasorting_dual/sorted_eglinton_data/CIL_Dual_Cam_Stage2_First_Half/roundabout_straight/rosbag2_2024_03_16-11_31_12_0_31144-31362")]
-   
-    # All_Searchable_Folders = [dirname("/home/quirky/Documents/eglinton_datasorting_dual/sorted_eglinton_data/CIL_Dual_Cam_Stage2_B/pullout/")]
+
+
+   #pullin stops example
+    #All_Searchable_Folders = [dirname("/media/sim/data/eglinton_datasorting_dual/sorted_eglinton_data/CIL_Dual_Cam_Stage2_B/pullin_stops/rosbag2_2025_02_21-14_45_21_0_51-2250_stops")]
+
+  #startpoint pull out eg
+    #All_Searchable_Folders = [dirname("/media/sim/data/eglinton_datasorting_dual/sorted_eglinton_data/CIL_Dual_Cam_Stage2_B/startpoint_out/rosbag2_2025_01_22-11_37_06_0_826-1251")]
+    #All_Searchable_Folders = [dirname("/home/quirky/Documents/eglinton_datasorting_dual/sorted_eglinton_data/CIL_Dual_Cam_Stage2_B/pullout/")]
 
     
     # All_Searchable_Folders = [dirname("/home/quirky/Documents/nUWAyModels/modelEvaluation/drives/rosbag_folder/VMamba/")]
@@ -559,13 +615,14 @@ if __name__ == "__main__":
 
 
 
-            img_pil = to_pil(img)           # <-- the important conversion
+            img_pil = to_pil(saliency_img)           # <-- the important conversion
             ow, oh = img_pil.size           # (width, height)
 
             # Resize to your training feed size (i checked and ppgeo does this size)
             feed_w, feed_h = 320, 160
             inp = img_pil.resize((feed_w, feed_h), Image.LANCZOS)
             inp = transforms.ToTensor()(inp)[None].to(device)
+
 
             with torch.no_grad():
                 feats = enc(inp)
@@ -598,7 +655,7 @@ if __name__ == "__main__":
             device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
             #  Build encoder/decoder exactly like monodepth2 test_simple.py (USING MY HELPER TO CONVER PREFIXES)
-            enc, dec = build_monodepth2_pair_from_stage1("models_to_test/stage1_custom_ppgeo.ckpt", device)
+            enc, dec = build_monodepth2_pair_from_stage1("models_to_test/stage1_custom_ppgeo4_epoch_17.ckpt", device)
 
             def to_pil(img_any):
                 """Accepts PIL.Image, numpy array (RGB or BGR), or a path -> returns PIL.Image RGB."""
@@ -640,13 +697,15 @@ if __name__ == "__main__":
 
 
 
-            img_pil = to_pil(img)           # <-- the important conversion
+            img_pil = to_pil(saliency_img)           # <-- the important conversion
             ow, oh = img_pil.size           # (width, height)
             print(f"PIL img size : {img_pil.size}")
             # Resize to your training feed size (i checked and ppgeo does this size)
             feed_w, feed_h = 320, 160
             inp = img_pil.resize((feed_w, feed_h), Image.LANCZOS)
             inp = transforms.ToTensor()(inp)[None].to(device)
+            
+
 
             with torch.no_grad():
                 feats = enc(inp)
