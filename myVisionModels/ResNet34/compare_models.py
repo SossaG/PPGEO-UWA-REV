@@ -27,7 +27,7 @@ from build_stage1_as_monodepth2 import build_monodepth2_pair_from_stage1
 
 # Paths to your checkpoint files
 default_ckpt_path = "models_to_test/ppgeo_depth.ckpt"
-custom_ckpt_path = "models_to_test/stage1_custom_ppgeo3.ckpt"
+custom_ckpt_path = "models_to_test/stage1_custom_ppgeo5.ckpt"
 
 # Load checkpoints
 ckpt_default = torch.load(default_ckpt_path, map_location="cuda")

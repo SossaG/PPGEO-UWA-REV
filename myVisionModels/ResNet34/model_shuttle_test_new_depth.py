@@ -655,7 +655,7 @@ if __name__ == "__main__":
             device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
             #  Build encoder/decoder exactly like monodepth2 test_simple.py (USING MY HELPER TO CONVER PREFIXES)
-            enc, dec = build_monodepth2_pair_from_stage1("models_to_test/stage1_custom_ppgeo4_epoch_17.ckpt", device)
+            enc, dec = build_monodepth2_pair_from_stage1("models_to_test/stage1_custom_ppgeo5_epoch_2.ckpt", device)
 
             def to_pil(img_any):
                 """Accepts PIL.Image, numpy array (RGB or BGR), or a path -> returns PIL.Image RGB."""

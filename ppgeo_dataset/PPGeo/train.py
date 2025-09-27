@@ -21,75 +21,7 @@ class PPGeoEngine(pl.LightningModule):
 		self.lr = config.lr
 		self.config = config
 		self.stage = self.stage
-		self.warmup_epochs = 3
 		self.model = Monodepth(stage = self.stage, batch_size=config.batch_size)
-		if self.stage == 1:
-			path_to_depth = "ppgeo_depth.ckpt"
-			print(f"[Warmstart][Stage1] Loading depth nets from {path_to_depth}")
-			ckpt = torch.load(path_to_depth, map_location="cpu")
-
-			# Expected PPGeo stage-1 export with two sub dicts
-			enc_sd = ckpt.get("depth_encoder_state_dict", {})
-			dec_sd = ckpt.get("depth_decoder_state_dict", {})
-
-			missing, unexpected = self.model.depth_encoder.load_state_dict(enc_sd, strict = False)
-			print(f"[Warmstart]  encoder Missing keys: {len(missing)}  Unexpected: {len(unexpected)}")
-
-			enc_keys_loaded = set(enc_sd.keys())
-			enc_keys_model = set(self.model.depth_encoder.state_dict().keys())
-			print(f"[Debug] Encoder: Loaded {len(enc_keys_loaded)} keys, Model expects {len(enc_keys_model)} keys")
-			print(f"[Debug] Encoder: Intersection {len(enc_keys_loaded & enc_keys_model)} keys")
-
-			# Check a few example layers for identical shape
-			for k in list(enc_keys_loaded & enc_keys_model)[:5]:
-				w_loaded = enc_sd[k].shape
-				w_model = self.model.depth_encoder.state_dict()[k].shape
-				print(f"[Debug] Encoder layer '{k}': loaded {w_loaded}, model {w_model}")
-
-			missing, unexpected = self.model.depth_decoder.load_state_dict(dec_sd, strict = False)
-			print(f"[Warmstart]  decoder Missing keys: {len(missing)}  Unexpected: {len(unexpected)}")
-
-			# === Optional: warm-start pose nets too (only if present & compatible) ===
-			path_to_pose = "ppgeo_pose.ckpt"
-
-			print(f"[Warmstart][Stage1] Loading pose nets from {path_to_pose}")
-			ckpt_pose = torch.load(path_to_pose, map_location="cpu")
-
-
-			pose_enc_sd = ckpt_pose.get("pose_encoder_state_dict", {})
-			pose_dec_sd = ckpt_pose.get("pose_decoder_state_dict", {})
-
-			# Some exports include a classification head in the encoder (fc.*); drop it
-			if pose_enc_sd:
-				pose_enc_sd = {k: v for k, v in pose_enc_sd.items()
-							if not (k.startswith("encoder.fc.") or k == "encoder.fc.weight" or k == "encoder.fc.bias")}
-
-			# --- load pose encoder if present ---
-			if pose_enc_sd:
-				pe_missing, pe_unexp = self.model.pose_encoder.load_state_dict(pose_enc_sd, strict=False)
-				print(f"[Warmstart]  pose-encoder Missing: {len(pe_missing)}  Unexpected: {len(pe_unexp)}")
-				if pe_missing:
-					print("[Warmstart]  pose-encoder missing keys:", pe_missing)
-
-				# sanity: first conv should be 6x7x7 for 2 frames of RGB (or gray→RGB)
-				try:
-					k = "encoder.conv1.weight"
-					w_ckpt  = tuple(pose_enc_sd[k].shape)
-					w_model = tuple(self.model.pose_encoder.state_dict()[k].shape)
-					print(f"[Debug] PoseEnc '{k}': loaded {w_ckpt} model {w_model}")
-				except KeyError:
-					pass
-			else:
-				print("[Warmstart]  No pose-encoder weights in ckpt.")
-
-			# --- load pose decoder if present ---
-			if pose_dec_sd:
-				pd_missing, pd_unexp = self.model.pose_decoder.load_state_dict(pose_dec_sd, strict=False)
-				print(f"[Warmstart]  pose-decoder Missing: {len(pd_missing)}  Unexpected: {len(pd_unexp)}")
-			else:
-				print("[Warmstart]  No pose-decoder weights in ckpt.")
-
-
 		if self.stage == 2:
 			self.motionnet = MotionNet()
 			path_to_ckpt_file = config.ckpt
@@ -120,79 +52,13 @@ class PPGeoEngine(pl.LightningModule):
 		return losses['loss']
 
 	def configure_optimizers(self):
-		# Use your existing self.lr for the "base" LR
-		base_lr = getattr(self, "lr", 1e-4)
-		wd = 1e-4
-
 		if self.stage == 2:
-			# Keep your original Stage-2 optimizer exactly as-is
-			optimizer = torch.optim.AdamW(self.motionnet.parameters(), lr=self.lr, weight_decay=wd)
-			lr_scheduler = torch.optim.lr_scheduler.CyclicLR(
-				optimizer, base_lr=1e-6, max_lr=1e-4, step_size_up=2000, cycle_momentum=False
-			)
-			return [optimizer], [lr_scheduler]
-
-		# ---- Stage 1: param-group LRs (tamed) ----
-		depth_enc = list(self.model.depth_encoder.parameters())
-		depth_dec = list(self.model.depth_decoder.parameters())
-		pose_enc  = list(self.model.pose_encoder.parameters())
-		pose_dec  = list(self.model.pose_decoder.parameters())
-		heads     = list(self.model.fl.parameters()) + list(self.model.offset.parameters())
-
-		# Multipliers relative to base_lr
-		groups = [
-			{"params": depth_dec, "lr": base_lr * 1.0},  # adapt fastest
-			{"params": heads,     "lr": base_lr * 1.0},  # small heads
-			{"params": depth_enc, "lr": base_lr * 0.5},  # gentle finetune
-			{"params": pose_dec,  "lr": base_lr * 0.3},  # tamed
-			{"params": pose_enc,  "lr": base_lr * 0.1},  # most tamed
-		]
-		optimizer = torch.optim.AdamW(groups, weight_decay=wd)
-
-		# Keep CyclicLR but preserve group *ratios*:
-		#   For each param group i, cycle from 0.1×(its LR) -> 1.0×(its LR)
-		base_lrs = [pg["lr"] * 0.1 for pg in optimizer.param_groups]
-		max_lrs  = [pg["lr"]       for pg in optimizer.param_groups]
-		lr_scheduler = torch.optim.lr_scheduler.CyclicLR(
-			optimizer,
-			base_lr=base_lrs,
-			max_lr=max_lrs,
-			step_size_up=2000,
-			cycle_momentum=False
-		)
-
+			optimizer = optim.AdamW(self.motionnet.parameters(), lr=self.lr, weight_decay=1e-4)
+		else:
+			optimizer = optim.AdamW(self.parameters(), lr=self.lr, weight_decay=1e-4)
+		lr_scheduler = optim.lr_scheduler.CyclicLR(
+			optimizer, base_lr=1e-6, max_lr=1e-4, step_size_up=2000, cycle_momentum=False)
 		return [optimizer], [lr_scheduler]
-
-	def _set_requires_grad(self, module, flag: bool):
-		for p in module.parameters():
-			p.requires_grad = flag
-
-	def on_fit_start(self):
-		self.print(f"[Hook] on_fit_start called. Freezing pose + early depth for {self.warmup_epochs} epochs.")
-		# Freeze pose entirely at start
-		self._set_requires_grad(self.model.pose_encoder, False)
-		self._set_requires_grad(self.model.pose_decoder, False)
-
-		# OPTIONAL: also freeze early depth encoder blocks for stability
-		# (ResNet blocks 'layer1' and 'layer2' match your checkpoint keys)
-		for name, m in self.model.depth_encoder.named_modules():
-			if name in ["encoder.layer1", "encoder.layer2"]:
-				self._set_requires_grad(m, False)
-				self.print(f"[Freeze] depth_encoder.{name} frozen.")
-
-	def on_train_epoch_start(self):
-		self.print(f"[Hook] on_train_epoch_start called. Epoch = {self.current_epoch}")
-
-		# Unfreeze at the end of warmup
-		if self.current_epoch == self.warmup_epochs:
-			self._set_requires_grad(self.model.pose_encoder, True)
-			self._set_requires_grad(self.model.pose_decoder, True)
-			for name, m in self.model.depth_encoder.named_modules():
-				if name in ["encoder.layer1", "encoder.layer2"]:
-					self._set_requires_grad(m, True)
-					self.print(f"[Unfreeze] depth_encoder.{name} unfrozen.")
-			self.print(f"[Warmup] Unfroze pose and early depth at epoch {self.current_epoch}.")
-
 
 
 	def validation_step(self, batch, batch_idx):
@@ -238,16 +104,15 @@ if __name__ == "__main__":
 	checkpoint_callback.CHECKPOINT_NAME_LAST = "{epoch}-last"
 	trainer = pl.Trainer.from_argparse_args(args,
 											default_root_dir=args.logdir,
-											gpus = 1,
-											accelerator='ddp',
-											sync_batchnorm=True,
-											plugins=DDPPlugin(find_unused_parameters=True),
+											gpus=1,
+											precision=16,
+											amp_backend="native",         # use PyTorch AMP
+											accumulate_grad_batches=3,       # use --batch_size 16  => 48 effective
 											profiler='simple',
 											benchmark=True,
 											log_every_n_steps=1,
 											flush_logs_every_n_steps=5,
-											callbacks=[checkpoint_callback,
-														],
+											callbacks=[checkpoint_callback],
 											check_val_every_n_epoch = 3,
 											max_epochs = args.epochs
 											)
@@ -258,7 +123,3 @@ if __name__ == "__main__":
 
 
 		
-
-
-
-
