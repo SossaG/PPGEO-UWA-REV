@@ -23,15 +23,74 @@ class PPGeoEngine(pl.LightningModule):
 		self.stage = self.stage
 		self.model = Monodepth(stage = self.stage, batch_size=config.batch_size)
 		if self.stage == 2:
+
+			path_to_depth = "ppgeo_depth.ckpt"
+			print(f"Loading depth nets from for stage 2 from {path_to_depth}")
+			ckpt = torch.load(path_to_depth, map_location="cpu")
+
+			# Expected PPGeo stage-1 export with two sub dicts
+			enc_sd = ckpt.get("depth_encoder_state_dict", {})
+
+			dec_sd = ckpt.get("depth_decoder_state_dict", {})
+
+			missing, unexpected = self.model.depth_encoder.load_state_dict(enc_sd, strict = False)
+			print(f"depth  encoder Missing keys: {len(missing)}  Unexpected: {len(unexpected)}")
+
+			enc_keys_loaded = set(enc_sd.keys())
+			enc_keys_model = set(self.model.depth_encoder.state_dict().keys())
+			print(f"[Debug] Encoder: Loaded {len(enc_keys_loaded)} keys, Model expects {len(enc_keys_model)} keys")
+			print(f"[Debug] Encoder: Intersection {len(enc_keys_loaded & enc_keys_model)} keys")
+
+			# Check a few example layers for identical shape
+			for k in list(enc_keys_loaded & enc_keys_model)[:5]:
+				w_loaded = enc_sd[k].shape
+				w_model = self.model.depth_encoder.state_dict()[k].shape
+				print(f"[Debug] Encoder layer '{k}': loaded {w_loaded}, model {w_model}")
+
+			missing, unexpected = self.model.depth_decoder.load_state_dict(dec_sd, strict = False)
+			print(f"depth decoder Missing keys: {len(missing)}  Unexpected: {len(unexpected)}")
+
+			# === Optional: warm-start pose nets too (only if present & compatible) ===
+			path_to_pose = "ppgeo_pose.ckpt"
+
+			print(f"[stage 2 Loading pose nets from {path_to_pose}")
+			ckpt_pose = torch.load(path_to_pose, map_location="cpu")
+
+
+			pose_enc_sd = ckpt_pose.get("pose_encoder_state_dict", {})
+			pose_dec_sd = ckpt_pose.get("pose_decoder_state_dict", {})
+
+			# Some exports include a classification head in the encoder (fc.*); drop it
+			if pose_enc_sd:
+				pose_enc_sd = {k: v for k, v in pose_enc_sd.items()
+							if not (k.startswith("encoder.fc.") or k == "encoder.fc.weight" or k == "encoder.fc.bias")}
+
+			# --- load pose encoder if present ---
+			if pose_enc_sd:
+				pe_missing, pe_unexp = self.model.pose_encoder.load_state_dict(pose_enc_sd, strict=False)
+				print(f" pose-encoder Missing: {len(pe_missing)}  Unexpected: {len(pe_unexp)}")
+				if pe_missing:
+					print(" pose-encoder missing keys:", pe_missing)
+
+				# sanity: first conv should be 6x7x7 for 2 frames of RGB (or gray→RGB)
+				try:
+					k = "encoder.conv1.weight"
+					w_ckpt  = tuple(pose_enc_sd[k].shape)
+					w_model = tuple(self.model.pose_encoder.state_dict()[k].shape)
+					print(f"[Debug] PoseEnc '{k}': loaded {w_ckpt} model {w_model}")
+				except KeyError:
+					pass
+			else:
+				print(" No pose-encoder weights in ckpt.")
+
+			# --- load pose decoder if present ---
+			if pose_dec_sd:
+				pd_missing, pd_unexp = self.model.pose_decoder.load_state_dict(pose_dec_sd, strict=False)
+				print(f" pose-decoder Missing: {len(pd_missing)}  Unexpected: {len(pd_unexp)}")
+			else:
+				print("  No pose-decoder weights in ckpt.")
+
 			self.motionnet = MotionNet()
-			path_to_ckpt_file = config.ckpt
-			ckpt = torch.load(path_to_ckpt_file, map_location='cpu')
-			ckpt = ckpt["state_dict"]
-			new_state_dict = OrderedDict()
-			for key, value in ckpt.items():
-				new_key = key.replace("model.","")
-				new_state_dict[new_key] = value
-			self.model.load_state_dict(new_state_dict, strict = True)
 			self.model.eval()
 			for param in self.model.parameters():
 				param.requires_grad = False
@@ -104,15 +163,16 @@ if __name__ == "__main__":
 	checkpoint_callback.CHECKPOINT_NAME_LAST = "{epoch}-last"
 	trainer = pl.Trainer.from_argparse_args(args,
 											default_root_dir=args.logdir,
-											gpus=1,
-											precision=16,
-											amp_backend="native",         # use PyTorch AMP
-											accumulate_grad_batches=3,       # use --batch_size 16  => 48 effective
+											gpus = 1,
+											accelerator='ddp',
+											sync_batchnorm=True,
+											plugins=DDPPlugin(find_unused_parameters=True),
 											profiler='simple',
 											benchmark=True,
 											log_every_n_steps=1,
 											flush_logs_every_n_steps=5,
-											callbacks=[checkpoint_callback],
+											callbacks=[checkpoint_callback,
+														],
 											check_val_every_n_epoch = 3,
 											max_epochs = args.epochs
 											)

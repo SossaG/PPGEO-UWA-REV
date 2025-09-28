@@ -24,6 +24,7 @@ Thumbs.db
 # model logs
 runs/
 runs_new/
+runs_new_final/
 ivan_model_logs/
 
 #models
