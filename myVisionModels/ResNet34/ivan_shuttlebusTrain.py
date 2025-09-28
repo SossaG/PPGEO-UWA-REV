@@ -7,7 +7,7 @@ from PIL import Image
 
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
-from new_resnet_model2 import build_model_for_eglinton, PPGeoNavModel
+from new_resnet_model_final import EglintonNavModel
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -150,7 +150,7 @@ if __name__ == "__main__":
     Speed_scale = 1.0
     Steering_Angle_scale = 1.0
 
-    model_path_name = "checkpoints_new/ppgeo_frozen_lane_following_finetune_1.0/ResNet34_shuttle_ppgeo_frozen_lane_following_finetune_1.0_5_0.0015_0.3716_0.3575.pth" #if loading model from checkpoint, put the model path name here
+    model_path_name = "checkpoints_new_final/ppgeo_frozen_lane_following_finetune_1.0/ResNet34_shuttle_ppgeo_frozen_lane_following_finetune_1.0_5_0.0015_0.3716_0.3575.pth" #if loading model from checkpoint, put the model path name here
     checkpoint = None
 
     
@@ -158,7 +158,7 @@ if __name__ == "__main__":
         config_yaml = yaml.safe_load(file)
 
     parser = argparse.ArgumentParser("Load model from checkpoint")
-    parser.add_argument("pretrain_type", type=str, default="imagenet", help="imagenet, ppgeo, or custom_ppgeo")
+    parser.add_argument("pretrain_type", type=str, default="scratch", help="scratch, ppgeo, or custom_ppgeo")
     parser.add_argument("freeze_mode", type=str, choices=["frozen", "unfrozen", "partial"], default="unfrozen",
                     help="Control freezing of encoder: frozen, unfrozen, or partial")
     parser.add_argument("model_type", default="lane_following", type=str, nargs='?')
@@ -177,34 +177,133 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.fine_tune_model:
-        if args.pretrain_type in ["ppgeo", "custom_ppgeo"]:
-            ckpt_path = (
-                "resnet34.ckpt" if args.pretrain_type == "ppgeo"
-                else "epoch=19-last-custom-ppgeo-trial1-stripped.ckpt"
-            )
-            model = build_model_for_eglinton(
-                pretrain_type=args.pretrain_type,
-                freeze_mode=args.freeze_mode,   # "frozen" | "partial" | "unfrozen"
-                normalize=False,                # keep False if your transforms handle it
-                ckpt_path=ckpt_path,
-            )
-        elif args.pretrain_type == "imagenet":
-            model = build_model_for_eglinton(
-                pretrain_type="imagenet",
-                freeze_mode=args.freeze_mode,
-                normalize=False,
-            )
 
+        if args.pretrain_type  == "ppgeo":
+            print("PPGEO Pretraining")
+            model = EglintonNavModel(pretrained=True, normalize=True)
+
+
+            ckpt_path = "resnet34.ckpt"  # or .pt
+
+            raw = torch.load(ckpt_path, map_location="cpu")
+            state_dict = raw["state_dict"] if "state_dict" in raw else raw
+
+            # Make conv1 1-channel compatible (from [64,3,7,7] -> [64,1,7,7])
+            if "conv1.weight" in state_dict and state_dict["conv1.weight"].shape[1] == 3:
+                state_dict["conv1.weight"] = state_dict["conv1.weight"].mean(1, keepdim=True)
+
+            # Drop classifier head
+            state_dict = {k: v for k, v in state_dict.items() if not k.startswith("fc.")}
+
+            # Prefix so keys match your wrapper submodule ("encoder.*")
+            sd = {f"encoder.{k}": v for k, v in state_dict.items()}
+
+            # Load
+            missing, unexpected = model.encoder.load_state_dict(sd, strict=False)
+            print(f"[Load encoder] missing={len(missing)} unexpected={len(unexpected)}")
+            print("[Load encoder] missing keys:")
+            for k in missing: print("  ", k)
+            print("[Load encoder] unexpected keys:")
+            for k in unexpected: print("  ", k)
+
+            mode = args.freeze_mode
+
+            if mode == "frozen":
+                print("FROZEN")
+                for p in model.encoder.parameters():
+                    p.requires_grad = False
+            elif mode == "partial":
+                print("PARTIAL")
+                for name, p in model.encoder.named_parameters():
+                    p.requires_grad = name.startswith(("conv1", "bn1", "layer1"))
+            elif mode == "unfrozen":
+                print("UNFROZEN")
+                for p in model.encoder.parameters():
+                    p.requires_grad = True
+            else:
+                raise ValueError("freeze mode must be one of: 'frozen','partial','unfrozen'")            
+
+ 
+            
+        if args.pretrain_type  == "custom_ppgeo":
+            print("CUSTOM PPGEO")
+
+            model = EglintonNavModel(pretrained=True, normalize=True)  
+
+            ckpt_path = "resnet34_custom2.pt"
+            raw = torch.load(ckpt_path, map_location="cpu")
+            state_dict = raw["state_dict"] if "state_dict" in raw else raw
+
+            # Make conv1 1-channel compatible (from [64,3,7,7] -> [64,1,7,7])
+            if "conv1.weight" in state_dict and state_dict["conv1.weight"].shape[1] == 3:
+                state_dict["conv1.weight"] = state_dict["conv1.weight"].mean(1, keepdim=True)
+
+            # Drop classifier head
+            state_dict = {k: v for k, v in state_dict.items() if not k.startswith("fc.")}
+
+            # Prefix so keys match your wrapper submodule ("encoder.*")
+            sd = {f"encoder.{k}": v for k, v in state_dict.items()}
+
+            # Load
+            missing, unexpected = model.encoder.load_state_dict(sd, strict=False)
+            print(f"[Load encoder] missing={len(missing)} unexpected={len(unexpected)}")
+            print("[Load encoder] missing keys:")
+            for k in missing: print("  ", k)
+            print("[Load encoder] unexpected keys:")
+            for k in unexpected: print("  ", k)
+
+
+            mode = args.freeze_mode
+
+            if mode == "frozen":
+                print("FROZEN")
+                for p in model.encoder.parameters():
+                    p.requires_grad = False
+            elif mode == "partial":
+                print("PARTIAL")
+                for name, p in model.encoder.named_parameters():
+                    p.requires_grad = name.startswith(("conv1", "bn1", "layer1"))
+            elif mode == "unfrozen":
+                print("UNFROZEN")
+                for p in model.encoder.parameters():
+                    p.requires_grad = True
+            else:
+                raise ValueError("freeze mode must be one of: 'frozen','partial','unfrozen'")          
+
+
+        elif args.pretrain_type == "scratch":
+            print("SCRATCH")
+            
+            model = EglintonNavModel(pretrained=False, normalize=True)
+
+            mode = args.freeze_mode
+
+            if mode == "frozen":
+                print("FROZEN")
+                for p in model.encoder.parameters():
+                    p.requires_grad = False
+            elif mode == "partial":
+                print("PARTIAL")
+                for name, p in model.encoder.named_parameters():
+                    p.requires_grad = name.startswith(("conv1", "bn1", "layer1"))
+            elif mode == "unfrozen":
+                print("UNFROZEN")
+                for p in model.encoder.parameters():
+                    p.requires_grad = True
+            else:
+                raise ValueError("freeze mode must be one of: 'frozen','partial','unfrozen'")   
+            
+        model.to(device)
    
         
 
     elif args.load_model:
         print(f"continuing training {model_path_name} from checkpoint")
-        model = PPGeoNavModelGray().to(device)
+        model = EglintonNavModel(pretrained=True, normalize=True).to(device)
         checkpoint = torch.load(model_path_name, map_location=device)
 
         # Restore model weights
-        model.load_state_dict(checkpoint['model_state_dict'])
+        model.load_state_dict(checkpoint['model_state_dict']) #might have to change this for my final model (i.e it has encoder.ecnoder prefixes now)
 
 
 
@@ -234,7 +333,7 @@ if __name__ == "__main__":
         model_name = args.model_type
     print(model_name)
     
-    writer = SummaryWriter(log_dir=f"runs_new2/{pretrain_type}_{freeze_mode}_{model_name}_{dataset_prop}")
+    writer = SummaryWriter(log_dir=f"runs_new_final/{pretrain_type}_{freeze_mode}_{model_name}_{dataset_prop}")
 
     if args.fine_tune_model:
         lane_follow_files = [
@@ -585,7 +684,7 @@ if __name__ == "__main__":
             )
         )
         #save in an organised folder of checkpoints for that run
-        checkpoint_dir = f"checkpoints_new2/{pretrain_type}_{freeze_mode}_{model_name}_{dataset_prop}"
+        checkpoint_dir = f"checkpoints_new_final/{pretrain_type}_{freeze_mode}_{model_name}_{dataset_prop}"
         os.makedirs(checkpoint_dir, exist_ok=True)
 
         if best_loss > total_epoch_loss:
@@ -615,8 +714,8 @@ if __name__ == "__main__":
     print(f'training finished at: {end_time}')
 
 
-    os.makedirs("finished_models_new2", exist_ok=True)
+    os.makedirs("finished_models_new_final", exist_ok=True)
 
-    torch.save(model.state_dict(), f'finished_models_new2/ResNet34_shuttlebus_{pretrain_type}_{freeze_mode}_{model_name}_{dataset_prop}.pth')
+    torch.save(model.state_dict(), f'finished_models_new_final/ResNet34_shuttlebus_{pretrain_type}_{freeze_mode}_{model_name}_{dataset_prop}.pth')
     writer.flush()
     writer.close()
