@@ -4,26 +4,25 @@ from functools import partial
 
 from torchvision import datasets, models, transforms
 from PIL import Image
+import PIL.Image as PILImage  # robust isinstance target
 
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
+from new_resnet_model_final import EglintonNavModel
 
 
 from torch.utils.tensorboard import SummaryWriter
+import torch.nn.functional as F
 
 import numpy as np
 
-import matplotlib
-matplotlib.use("Agg")          # put this before any other matplotlib imports
-import matplotlib.cm as cm
-
 import cv2
-import glob
 import os
 import sys
 from os.path import join, exists, dirname, abspath
 import matplotlib.cm as cm
-from new_resnet_model_final import EglintonNavModel
+import glob
+
 # from sklearn.model_selection import train_test_split
 
 # import torch.optim as optim
@@ -32,13 +31,9 @@ import argparse
 # from torchsummary import summary
 # import time
 
-
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 import random
-
-
-from pytorch_grad_cam import EigenCAM as LibEigenCAM
-
-
 
 transform = transforms.Compose(
     [
@@ -46,27 +41,172 @@ transform = transforms.Compose(
     ]
 )
 
-# Keep Eigen-CAM preprocessing identical to inference
-saliency_transform = transform
+saliency_transform = transforms.Compose([
+    # transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.5], std=[0.5])
+])
+
+def eigen_cam_from_feats(feat: torch.Tensor) -> torch.Tensor:
+    """
+    Input:
+      feat: [C, H, W] tensor from encoder's last stage (layer4), no grad.
+    Returns:
+      cam: [H, W] tensor in [0,1], same spatial size as feat
+    """
+    C, H, W = feat.shape
+    # Flatten spatial dims: M shape [C, HW]
+    M = feat.view(C, -1)  # [C, HW]
+
+    # SVD on channel covariance: principal eigenvector (U[:,0]) gives channel weights
+    # M = U S V^T ; principal weights w = U[:,0]
+    # Torch SVD is deterministic with float32 on CPU/GPU for this size.
+    U, S, Vh = torch.linalg.svd(M, full_matrices=False)  # U: [C, C], Vh: [HW, HW]
+    w = U[:, 0]  # [C]
+
+    # Combine channels with weights to get spatial map: cam_flat = w^T @ M
+    cam_flat = torch.mv(M.transpose(0, 1), w)  # [HW]
+    cam = cam_flat.view(H, W)
+
+    # Normalise to [0,1]
+    cam = cam - cam.min()
+    denom = cam.max().clamp(min=1e-6)
+    cam = cam / denom
+    return cam
+
+@torch.no_grad()
+def eigen_cam_on_grayscale(
+    model: EglintonNavModel,
+    saliency_img,  
+    device: str = None,
+    return_overlay: bool = False
+):
+    """
+    Computes Eigen-CAM heatmap for your Eglinton model's encoder on a single grayscale image.
+
+    Args:
+      model: EglintonNavModel (already constructed; weights optional)
+      saliency_img: grayscale image HxW (uint8 0..255 or float 0..255/0..1)
+      device: e.g. 'cuda' or 'cpu' (defaults to model's device)
+      return_overlay: if True, also returns an RGB overlay [H,W,3] numpy
+    Returns:
+      cam_np: [H, W] float32 in [0,1]
+      (optional) overlay_rgb: [H, W, 3] uint8
+    """
+    model.eval()
+    # Pick device from model if not provided
+    if device is None:
+        device = next(model.parameters()).device.type
+
+    arr = np.asarray(saliency_img, dtype=np.float32)  # [H,W], values 0..255
+    arr = arr / 255.0                                # scale to [0,1]
+    img_t = torch.from_numpy(arr)[None, None, ...]   # [1,1,H,W]
+    img_t = img_t.to(device)
+
+
+
+    # --- Run encoder to get multi-scale features (your encoder returns 5) ---
+    # Your EglintonNavModel stores normalize flag and passes it to ResnetEncoder,
+    # which internally uses mean=0.458, std=0.245 for grayscale normalization.
+    feats = model.encoder(img_t, normalize=model.normalize)
+    last = feats[-1].squeeze(0)  # [C,Hf,Wf]
+
+    # --- Eigen-CAM on last feature map ---
+    cam = eigen_cam_from_feats(last)  # [Hf,Wf]
+
+    # --- Upsample to input image size ---
+    H, W = img_t.shape[-2:]
+    cam_up = F.interpolate(cam[None, None, ...], size=(H, W), mode="bilinear", align_corners=False)
+    cam_up = cam_up[0, 0]  # [H,W]
+
+    # Normalise again after interpolation
+    cam_up = cam_up - cam_up.min()
+    cam_up = cam_up / cam_up.max().clamp(min=1e-6)
+
+    cam_np = cam_up.detach().cpu().float().numpy()
+
+    if not return_overlay:
+        return cam_np
+
+    # Simple overlay (grayscale base + CAM as alpha tint)
+    base = (img_t[0, 0].detach().cpu().clamp(0, 1).numpy() * 255.0).astype(np.uint8)  # [H,W]
+    heat = (cam_np * 255.0).astype(np.uint8)  # [H,W]
+
+    # Make a quick jet-like overlay without cv2: stack channels (R=heat, G=base, B=(255-heat))
+    overlay = np.stack([
+        heat,                                # R
+        base,                                # G
+        255 - heat                           # B
+    ], axis=-1).astype(np.uint8)             # [H,W,3]
+
+    return cam_np, overlay
+
+def show_eigencam_overlay_window(
+    saliency_img,          # HxW grayscale (uint8 0..255 or float 0..255/0..1)
+    model,                 # your EglintonNavModel
+    win_name="saliency",
+    target_size=(480, 240) # (W,H) for display
+):
+    # --- Run Eigen-CAM ---
+    cam, _ = eigen_cam_on_grayscale(model, saliency_img, return_overlay=True)  # cam: [H,W] float [0,1]
+
+    # --- Build heatmap (like your old code) ---
+    # cv2 expects uint8 0..255 and BGR ordering
+    cam_uint8 = (cam * 255.0).astype(np.uint8)                    # [H,W]
+    heatmap_bgr = cv2.applyColorMap(cam_uint8, cv2.COLORMAP_JET)  # [H,W,3] uint8 (BGR)
+
+    # --- Prepare original grayscale image as 3-channel for blending ---
+    if isinstance(saliency_img, np.ndarray):
+        orig = saliency_img.astype(np.float32)
+    else:
+        orig = np.asarray(saliency_img, dtype=np.float32)
+
+    if orig.max() > 1.0:
+        orig = orig / 255.0  # now 0..1
+
+    # make it 3-channel (BGR for cv2)
+    original_bgr = np.stack([orig, orig, orig], axis=-1)  # [H,W,3], float 0..1
+
+    # scale heatmap to 0..1 for blending
+    heatmap_bgr_float = heatmap_bgr.astype(np.float32) / 255.0
+
+    # --- Blend like your snippet ---
+    overlay = 0.5 * original_bgr + 0.5 * heatmap_bgr_float
+    overlay = np.clip(overlay, 0.0, 1.0)
+
+    # --- Resize for display (note: cv2.resize uses (W,H)) ---
+    overlay_disp = cv2.resize(overlay, dsize=target_size, interpolation=cv2.INTER_CUBIC)
+
+    # --- Show window, keep previous window behaviour ---
+    cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
+    cv2.resizeWindow(win_name, 500, 300)
+    cv2.imshow(win_name, overlay_disp)
+    # caller should handle cv2.waitKey(...) outside for loop timing/controls
+
+    return overlay_disp  # float image 0..1 (useful if you want to save or log)
+
+
 
 
 if __name__ == "__main__":
     #load image
     parser = argparse.ArgumentParser("Load model from checkpoint")
     parser.add_argument("--load_model", action="store_true")
-    #parser.add_argument("model_name", default="checkpoints/custom_ppgeo_unfrozen_lane_following_finetune_1.0/ResNet34_shuttle_custom_ppgeo_unfrozen_lane_following_finetune_1.0_1_0.0012_0.4518_0.5270.pth", type=str, nargs='?')
-    parser.add_argument("model_name", default="finished_models_new_final/ResNet34_shuttlebus_custom_ppgeo_frozen_lane_following_finetune_1.0.pth", type=str, nargs='?')
-    # parser.add_argument("model_fine_name", default="VMamba_shuttle_lane_following_13_0.0003_0.9026_0.8934.pth", type=str, nargs='?')
-    """parser.add_argument("model_pullin_name", default="VMamba_shuttle_pullin_16_0.0007_0.9070_0.8310.pth", type=str, nargs='?')
-    parser.add_argument("model_reverse_name", default="VMamba_shuttle_reverse_21_0.0004_0.9536_0.9929.pth", type=str, nargs='?')
+    #parser.add_argument("model_name", default="finished_models_new_final/ResNet34_shuttlebus_custom_ppgeo_frozen_lane_following_finetune_1.0.pth", type=str, nargs='?')
+    #parser.add_argument("model_name", default="checkpoints_new_final/ppgeo_frozen_lane_following_finetune_1.0/ResNet34_shuttle_ppgeo_frozen_lane_following_finetune_1.0_3_0.0015_0.3584_0.3335.pth", type=str, nargs='?')
+    parser.add_argument("model_name", default="checkpoints_new_final/imagenet_frozen_lane_following_finetune_0.01/ResNet34_shuttle_imagenet_frozen_lane_following_finetune_0.01_2_0.0061_0.0135_0.1631.pth", type=str, nargs='?')
+    """parser.add_argument("model_fine_name", default="VMamba_shuttle_lane_following_finetune_7_0.0003_0.9266_0.8902.pth", type=str, nargs='?')
+    parser.add_argument("model_pullin_name", default="VMamba_shuttle_pullin_11_0.0003_0.9749_0.9469.pth", type=str, nargs='?')
+    parser.add_argument("model_reverse_name", default="VMamba_shuttle_reverse_11_0.0002_0.9605_0.9967.pth", type=str, nargs='?')
     parser.add_argument("model_type", default="lane_following", type=str, nargs='?')"""
 
     args = parser.parse_args()
 
-    # print(args.model_name)
-    # print(args.model_type)
+    print(args.model_name)
+    #print(args.model_type)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(device)
 
     torch.manual_seed(1234)
     np.random.seed(1234)
@@ -81,13 +221,10 @@ if __name__ == "__main__":
     torch.backends.cudnn.benchmark = False
     torch.set_float32_matmul_precision('high')
 
-    """model = ResNet34PilotNet()
-    #model.load_state_dict(torch.load(args.model_name)['model_state_dict']) --not using a checkpoint dict file yet, so will replace code for now with the following
-    state_dict = torch.load(args.model_name)
-    model.load_state_dict(state_dict)"""
+    """torch.manual_seed(1234)
+    if device == "cuda":
+        torch.cuda.manual_seed_all(1234)"""
 
-    #adding flexivbility for type of .pth loaded
-    
     model = EglintonNavModel(pretrained=True, normalize=True)
     _ckpt = torch.load(args.model_name, map_location=device)
     if isinstance(_ckpt, dict):
@@ -121,6 +258,7 @@ if __name__ == "__main__":
     model.eval()
     model.to(device)
 
+
     # === Optional: dynamic model switching support (non-breaking) ===
     # Build a list of candidate model files from the same directory as the initial model.
     try:
@@ -139,6 +277,8 @@ if __name__ == "__main__":
     except ValueError:
         pt_idx = 0
 
+
+
     def _reload_model_from_path(pt_model_path: str):
         """Reload a ResNet34PilotNet from a given checkpoint path."""
         m = EglintonNavModel(pretrained=True, normalize=True)
@@ -153,101 +293,13 @@ if __name__ == "__main__":
         m.to(device)
         return m
 
-    def _last_conv_before_gap_or_fallback(model: nn.Module) -> nn.Module:
-        """Prefer the last conv right before GAP (best interpretability); fallback to last Conv2d."""
-        # Works for your ResNet34PilotNet(backbone=resnet34)
-        try:
-            return model.backbone.layer4[-1].conv2  # last conv before GAP in ResNet-34
-        except Exception:
-            last = None
-            for _, m in model.named_modules():
-                if isinstance(m, nn.Conv2d):
-                    last = m
-            if last is None:
-                raise RuntimeError("Could not locate a Conv2d layer for Eigen-CAM.")
-            return last
-
-    def _compute_eigencam_overlay(model: nn.Module, saliency_img: Image.Image, device: str) -> np.ndarray:
-        """
-        No-library Eigen-CAM:
-        1) hook last conv → activations A ∈ R^{C,Hf,Wf}
-        2) zero-center per-channel, SVD on A_flat ∈ R^{C,HW}
-        3) take first left singular vector w, cam = w^T A_flat → (Hf,Wf)
-        4) normalize, resize to input crop, blend 50/50 with grayscale
-        Returns overlay as float RGB in [0,1] with shape (H, W, 3).
-        """
-        # Build input exactly like your inference path
-        x = saliency_transform(saliency_img).unsqueeze(0).to(device)
-
-        # Capture activations from the target conv
-        feats = {}
-        target = _last_conv_before_gap_or_fallback(model)
-
-        def _fw_hook(_, __, output):
-            feats['act'] = output.detach()
-
-        h = target.register_forward_hook(_fw_hook)
-        model.eval()
-        with torch.no_grad():
-            _ = model(x)  # outputs are unused for Eigen-CAM
-        h.remove()
-
-        assert 'act' in feats, "Eigen-CAM: forward hook did not capture activations"
-        A = feats['act'][0]              # (C, Hf, Wf) on device
-        C, Hf, Wf = A.shape
-
-        # Flatten spatial and zero-center per channel; do SVD on CPU for stability
-        # --- SVD on zero-centered activations ---
-        Af = A.reshape(C, -1).float().cpu()              # (C, HW)
-        Af = Af - Af.mean(dim=1, keepdim=True)
-
-        try:
-            U, S, Vh = torch.linalg.svd(Af, full_matrices=False)
-            w = U[:, 0]                                  # (C,)
-            cam_flat = torch.matmul(w, Af)               # (HW,)
-        except Exception:
-            U, S, V = torch.svd(Af)
-            w = U[:, 0]
-            cam_flat = torch.matmul(w, Af)
-
-        cam = cam_flat.reshape(Hf, Wf)                   # (Hf, Wf)
-
-        # >>> NEW: sign disambiguation using feature energy (always ≥0)
-        energy = (A.float().cpu() ** 2).sum(dim=0)       # (Hf, Wf)
-        corr = (cam * energy).mean()                     # scalar
-        if corr < 0:
-            cam = -cam                                   # flip sign so it aligns with energy
-        # <<<
-
-        
-        # >>> NEW: make “importance” strictly positive
-        # Option 1 (recommended): keep only positive contribution (ReLU)
-        cam = torch.clamp(cam, min=0)
-        # (Alternative: magnitude-only)
-        # cam = cam.abs()
-        # <<<
-
-        # normalise [0,1] as you already do
-        cam = cam - cam.min()
-        cam = cam / (cam.max() + 1e-8)
-        cam_np = cam.numpy()
 
 
-        # Resize CAM to crop size
-        cam_resized = cv2.resize(cam_np, (saliency_img.width, saliency_img.height), interpolation=cv2.INTER_CUBIC)
 
-        # Base grayscale → BGR uint8
-        base_bgr = cv2.cvtColor((np.array(saliency_img)).astype(np.uint8), cv2.COLOR_GRAY2BGR)
 
-        # CAM → heatmap (BGR uint8) using a perceptually nicer map than JET
-        heat_bgr = cv2.applyColorMap((cam_resized * 255).astype(np.uint8), cv2.COLORMAP_TURBO)
-
-        # Softer blend (reduce washout)
-        ALPHA = 0.35
-        overlay_bgr = cv2.addWeighted(base_bgr, 1.0 - ALPHA, heat_bgr, ALPHA, 0.0)
-        return overlay_bgr
 
     
+
 
 
     #model_name = args.model_type --hard code for now
@@ -261,11 +313,17 @@ if __name__ == "__main__":
 
     #generic lanefollowing example
     #All_Searchable_Folders = [dirname("/media/sim/data/eglinton_datasorting_dual/sorted_eglinton_data/CIL_Dual_Cam_Stage2_B/lane_following/rosbag2_2024_09_03-10_06_24_0_7421-7571")]
-
+    All_Searchable_Folders = [dirname("/media/sim/data/eglinton_datasorting_dual/sorted_eglinton_data/CIL_Dual_Cam_Stage2_B/lane_following/rosbag2_2025_02_21-14_05_53_0")]
     #roundabout example
-    All_Searchable_Folders = [dirname("/media/sim/data/eglinton_datasorting_dual/sorted_eglinton_data/CIL_Dual_Cam_Stage2_First_Half/roundabout_straight/rosbag2_2024_03_16-11_31_12_0_31144-31362")]
-   
-    # All_Searchable_Folders = [dirname("/home/quirky/Documents/eglinton_datasorting_dual/sorted_eglinton_data/CIL_Dual_Cam_Stage2_B/pullout/")]
+    #All_Searchable_Folders = [dirname("/media/sim/data/eglinton_datasorting_dual/sorted_eglinton_data/CIL_Dual_Cam_Stage2_First_Half/roundabout_straight/rosbag2_2024_03_16-11_31_12_0_31144-31362")]
+
+
+   #pullin stops example
+    #All_Searchable_Folders = [dirname("/media/sim/data/eglinton_datasorting_dual/sorted_eglinton_data/CIL_Dual_Cam_Stage2_B/pullin_stops/rosbag2_2025_02_21-14_45_21_0_51-2250_stops")]
+
+  #startpoint pull out eg
+    #All_Searchable_Folders = [dirname("/media/sim/data/eglinton_datasorting_dual/sorted_eglinton_data/CIL_Dual_Cam_Stage2_B/startpoint_out/rosbag2_2025_01_22-11_37_06_0_826-1251")]
+    #All_Searchable_Folders = [dirname("/home/quirky/Documents/eglinton_datasorting_dual/sorted_eglinton_data/CIL_Dual_Cam_Stage2_B/pullout/")]
 
     
     # All_Searchable_Folders = [dirname("/home/quirky/Documents/nUWAyModels/modelEvaluation/drives/rosbag_folder/VMamba/")]
@@ -402,140 +460,12 @@ if __name__ == "__main__":
         k = cv2.waitKey(0)
         # print(k)
         if k == 115:
-
-            ###################### saliency straight #########################
-
-            input_tensor = saliency_transform(saliency_img).unsqueeze(0).to(device)
-            input_tensor.requires_grad_()
-            target = None
-
-            #pass image to model
-            if current_model == 0:
-                saliency_output1, saliency_output2 = model(input_tensor)
-                target = saliency_output1[0, 0] if saliency_output1.dim() == 2 else saliency_output1.squeeze()
-
-                # Backward pass: compute gradients of output w.r.t. input image
-                model.zero_grad()
-                target.backward()
-            # elif current_model == 1:
-            #     saliency_output1, saliency_output2 = model_fine(input_tensor)
-            #     target = saliency_output1[0, 0] if saliency_output1.dim() == 2 else saliency_output1.squeeze()
-
-            #     # Backward pass: compute gradients of output w.r.t. input image
-            #     model_fine.zero_grad()
-            #     target.backward()
-            """elif current_model == 2:
-                saliency_output1, saliency_output2 = model_pullin(input_tensor)
-                target = saliency_output1[0, 0] if saliency_output1.dim() == 2 else saliency_output1.squeeze()
-
-                # Backward pass: compute gradients of output w.r.t. input image
-                model_pullin.zero_grad()
-                target.backward()
-            else:
-                saliency_output1, saliency_output2 = model_reverse(input_tensor)
-                target = saliency_output1[0, 0] if saliency_output1.dim() == 2 else saliency_output1.squeeze()
-
-                # Backward pass: compute gradients of output w.r.t. input image
-                model_reverse.zero_grad()
-                target.backward()"""
-            saliency = input_tensor.grad.data.abs().squeeze(0).squeeze(0).cpu()   # shape: (3, 224, 224)
-
-            # Original image: resized to match input shape and normalized back to [0, 1]
-            original_resized = saliency_img
-            original_np = np.array(original_resized) / 255.0  # shape: (224, 224), values in [0, 1]
-
-            # Normalize saliency to [0, 1]
-            saliency_np = saliency.numpy()
-            saliency_norm = (saliency_np - saliency_np.min()) / (saliency_np.max() - saliency_np.min() + 1e-8)
-
-            # Create a heatmap from the saliency map
-            heatmap = cm.jet(saliency_norm)[..., :3]  # shape: (224, 224, 3), ignore alpha channel
-
-            # Convert grayscale to RGB for overlay
-            original_rgb = np.stack([original_np]*3, axis=-1)
-
-            # Blend heatmap with original image
-            overlay = 0.5 * original_rgb + 0.5 * heatmap
-            overlay = np.clip(overlay, 0, 1)
-            cv2.namedWindow('Linear Saliency', cv2.WINDOW_NORMAL)
-            overlay = cv2.resize(overlay, dsize=(480,240), interpolation=cv2.INTER_CUBIC)
-            cv2.resizeWindow('Linear Saliency', 500, 300)
-
-            cv2.imshow('Linear Saliency', overlay)
+            show_eigencam_overlay_window(saliency_img, model, win_name="saliency", target_size=(480,240))
 
 
-            ###################### saliency turning #########################
-
-            input_tensor2 = saliency_transform(saliency_img).unsqueeze(0).to(device)
-            input_tensor2.requires_grad_()
-            target2 = None
-
-            #pass image to model
-            if current_model == 0:
-                saliency_output1, saliency_output2 = model(input_tensor2)
-                target2 = saliency_output2[0, 0] if saliency_output2.dim() == 2 else saliency_output2.squeeze()
-
-                # Backward pass: compute gradients of output w.r.t. input image
-                model.zero_grad()
-                target2.backward()
-            # elif current_model == 1:
-            #     saliency_output1, saliency_output2 = model_fine(input_tensor2)
-            #     target2 = saliency_output2[0, 0] if saliency_output2.dim() == 2 else saliency_output2.squeeze()
-
-            #     # Backward pass: compute gradients of output w.r.t. input image
-            #     model_fine.zero_grad()
-            #     target2.backward()
-            """elif current_model == 2:
-                saliency_output1, saliency_output2 = model_pullin(input_tensor2)
-                target2 = saliency_output2[0, 0] if saliency_output2.dim() == 2 else saliency_output2.squeeze()
-
-                # Backward pass: compute gradients of output w.r.t. input image
-                model_pullin.zero_grad()
-                target2.backward()
-            else:
-                saliency_output1, saliency_output2 = model_reverse(input_tensor2)
-                target2 = saliency_output2[0, 0] if saliency_output2.dim() == 2 else saliency_output2.squeeze()
-
-                # Backward pass: compute gradients of output w.r.t. input image
-                model_reverse.zero_grad()
-                target2.backward()"""
-            saliency2 = input_tensor2.grad.data.abs().squeeze(0).squeeze(0).cpu()   # shape: (3, 224, 224)
-
-            # Original image: resized to match input shape and normalized back to [0, 1]
-            original_resized2 = saliency_img
-            original_np2 = np.array(original_resized2) / 255.0  # shape: (224, 224), values in [0, 1]
-
-            # Normalize saliency to [0, 1]
-            saliency_np2 = saliency2.numpy()
-            saliency_norm2 = (saliency_np2 - saliency_np2.min()) / (saliency_np2.max() - saliency_np2.min() + 1e-8)
-
-            # Create a heatmap from the saliency map
-            heatmap2 = cm.jet(saliency_norm2)[..., :3]  # shape: (224, 224, 3), ignore alpha channel
-
-            # Convert grayscale to RGB for overlay
-            original_rgb2 = np.stack([original_np2]*3, axis=-1)
-
-            # Blend heatmap with original image
-            overlay2 = 0.5 * original_rgb2 + 0.5 * heatmap2
-            overlay2 = np.clip(overlay2, 0, 1)
-            cv2.namedWindow('Rotational Saliency', cv2.WINDOW_NORMAL)
-            overlay2 = cv2.resize(overlay2, dsize=(480,240), interpolation=cv2.INTER_CUBIC)
-            cv2.resizeWindow('Rotational Saliency', 500, 300)
-
-            cv2.imshow('Rotational Saliency', overlay2)
-
-
-            # plt.figure(figsize=(6, 6))
-            # plt.imshow(overlay)
-            # plt.axis("off")
-            # plt.title("Saliency Map Overlay")
-            # # plt.ion()
-            # # plt.show()
-            # plt.pause(0.001)
+            
             k = cv2.waitKey(0)
-
-
-        
+            print(k)
 
         if k == 113:
             cv2.destroyAllWindows()
