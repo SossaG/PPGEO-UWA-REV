@@ -20,6 +20,8 @@ conda env create -f ivan3.yml
 conda create -n ivan3_clone --file ivan3-conda-lock.txt -y
 conda activate ivan3_clone
 pip install -r ivan3-pip-lock.txt
+tar -C "$CONDA_PREFIX" -xzf /path/to/ivan3-env-extras.tgz
+
 
 That’s it—ivan3.yml for easy rebuilds, and the lock files if you want 1:1 reproducibility.
 
