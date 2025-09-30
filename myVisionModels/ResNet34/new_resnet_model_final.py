@@ -46,7 +46,7 @@ class EglintonNavModel(nn.Module):
     """
     def __init__(
         self,
-        pretrained: bool = True,
+        pretrained: bool = False,
         normalize: bool = True,
         head_hidden: int = 256,
         head_dropout: float = 0.2,

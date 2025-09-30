@@ -24,8 +24,7 @@ import sys
 sys.path.append('/workspace/ros_mamba_ws/ivanModel')
 
 # from shuttlebusTrain import ViM
-from new_resnet_model import PPGeoNavModelGray, build_model_for_eglinton_gray
-
+from new_resnet_model_final import EglintonNavModel
 
 
 bridge = CvBridge()
@@ -63,45 +62,74 @@ class ppgeo_publisher(Node):
             10)
         self.img_subscription  # prevent unused variable warning
         self.mode_subscription  # prevent unused variable warning
-        self.lane_following_cmd0 = "ResNet34_shuttlebus_imagenet_unfrozen_lane_following_finetune_1.0.pth"
+        self.lane_following_cmd0 = "ResNet34_shuttlebus_custom_ppgeo_frozen_lane_following_finetune_1.0.pth"
         self.model_path = os.path.join(Model_Path, self.lane_following_cmd0)
-        self.lane_following_cmd1 = "ResNet34_shuttlebus_custom_ppgeo_unfrozen_lane_following_finetune_1.0.pth"
+        self.lane_following_cmd1 = "ResNet34_shuttlebus_ppgeo_frozen_lane_following_finetune_1.0.pth"
         self.model_pullin_path = os.path.join(Model_Path, self.lane_following_cmd1)
-        self.lane_following_cmd2 = "ResNet34_shuttlebus_ppgeo_partial_lane_following_finetune_1.0.pth"
+        self.lane_following_cmd2 = "ResNet34_shuttlebus_ppgeo_frozen_lane_following_finetune_1.0.pth"
         self.model_reverse_path = os.path.join(Model_Path, self.lane_following_cmd2)
-        self.lane_following_cmd3 = "ResNet34_shuttle_custom_ppgeo_frozen_lane_following_finetune_1.0_40_0.0021_0.4455_0.2174.pth"
+        self.lane_following_cmd3 = "ResNet34_shuttlebus_ppgeo_frozen_lane_following_finetune_1.0.pth"
         self.model_dual_steering_path = os.path.join(Model_Path, self.lane_following_cmd3)
+        
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
         # print(sys.path)
-        self.model = build_model_for_eglinton_gray(
-                pretrain_type="scratch",   # important: we're restoring from your .pth, not re-pretraining here
-                freeze_mode="unfrozen",
-                normalize=False
-            ).to(device)
+        self.model = EglintonNavModel(pretrained=True, normalize=True)
+
         # print(self.model)
-        self.model_pullin =  build_model_for_eglinton_gray(
-                pretrain_type="scratch",   # important: we're restoring from your .pth, not re-pretraining here
-                freeze_mode="unfrozen",
-                normalize=False
-            ).to(device)
+        self.model_pullin =  EglintonNavModel(pretrained=True, normalize=True)
 
-        self.model_reverse = build_model_for_eglinton_gray(
-            pretrain_type="scratch",   # important: we're restoring from your .pth, not re-pretraining here
-            freeze_mode="unfrozen",
-            normalize=False
-        ).to(device) 
+        self.model_reverse = EglintonNavModel(pretrained=True, normalize=True)
 
-        self.model_dual_steering = re
+        self.model_dual_steering = EglintonNavModel(pretrained=True, normalize=True)
+
 
         self.nn_linear=0.1
         self.nn_angular=0.0
         self.driving_mode=7
         self.speed_multi=4.0
-        
-        self.model.load_state_dict(torch.load(self.model_path)['model_state_dict'])
-        self.model_pullin.load_state_dict(torch.load(self.model_pullin_path, weights_only=True)['model_state_dict'])
-        self.model_reverse.load_state_dict(torch.load(self.model_reverse_path, weights_only=True)['model_state_dict'])
-        self.model_dual_steering.load_state_dict(torch.load(self.model_dual_steering_path, weights_only=True)['model_state_dict'])
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+        _ckpt = torch.load(self.model_path, map_location=device)
+
+        if isinstance(_ckpt, dict) and 'model_state_dict' in _ckpt:
+            self.model.load_state_dict(_ckpt['model_state_dict'], strict=True)
+        elif isinstance(_ckpt, dict) and 'state_dict' in _ckpt:
+            self.model.load_state_dict(_ckpt['state_dict'], strict=True)
+        else:
+            # fallback: assume raw state_dict-like mapping
+            self.model.load_state_dict(_ckpt, strict=True)
+
+
+        _ckpt2 = torch.load(self.model_pullin_path, map_location=device)
+
+        if isinstance(_ckpt2, dict) and 'model_state_dict' in _ckpt2:
+            self.model_pullin.load_state_dict(_ckpt2['model_state_dict'], strict=True)
+        elif isinstance(_ckpt2, dict) and 'state_dict' in _ckpt2:
+            self.model_pullin.load_state_dict(_ckpt2['state_dict'], strict=True)
+        else:
+            # fallback: assume raw state_dict-like mapping
+            self.model_pullin.load_state_dict(_ckpt2, strict=True)
+
+        _ckpt3 = torch.load(self.model_reverse_path, map_location=device)
+
+        if isinstance(_ckpt3, dict) and 'model_state_dict' in _ckpt3:
+            self.model_reverse.load_state_dict(_ckpt3['model_state_dict'], strict=True)
+        elif isinstance(_ckpt3, dict) and 'state_dict' in _ckpt3:
+            self.model_reverse.load_state_dict(_ckpt3['state_dict'], strict=True)
+        else:
+            # fallback: assume raw state_dict-like mapping
+            self.model_reverse.load_state_dict(_ckpt3, strict=True)
+
+        _ckpt4 = torch.load(self.model_dual_steering_path, map_location=device)
+
+        if isinstance(_ckpt3, dict) and 'model_state_dict' in _ckpt4:
+            self.model_dual_steering.load_state_dict(_ckpt4['model_state_dict'], strict=True)
+        elif isinstance(_ckpt4, dict) and 'state_dict' in _ckpt4:
+            self.model_dual_steering.load_state_dict(_ckpt4['state_dict'], strict=True)
+        else:
+            # fallback: assume raw state_dict-like mapping
+            self.model_dual_steering.load_state_dict(_ckpt4, strict=True)
+
+
         # print(self.model.state_dict())
         self.model.eval()
         self.model_pullin.eval()
@@ -218,9 +246,9 @@ class ppgeo_publisher(Node):
         #print("Got something!")
         self.speed_mode=msg.data
         if self.speed_mode==0:
-            self.speed_multi=2.0
+            self.speed_multi=4.0
         else:
-            self.speed_multi=3.0
+            self.speed_multi=5.4
 
     def publish_msg(self):
         msg = Twist()
