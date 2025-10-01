@@ -158,7 +158,7 @@ if __name__ == "__main__":
         config_yaml = yaml.safe_load(file)
 
     parser = argparse.ArgumentParser("Load model from checkpoint")
-    parser.add_argument("pretrain_type", type=str, default="scratch", help="scratch, ppgeo, or custom_ppgeo")
+    parser.add_argument("pretrain_type", type=str, default="scratch", help="scratch, ppgeo, custom_ppgeo or ImageNet")
     parser.add_argument("freeze_mode", type=str, choices=["frozen", "unfrozen", "partial"], default="unfrozen",
                     help="Control freezing of encoder: frozen, unfrozen, or partial")
     parser.add_argument("model_type", default="lane_following", type=str, nargs='?')
@@ -180,7 +180,7 @@ if __name__ == "__main__":
 
         if args.pretrain_type  == "ppgeo":
             print("PPGEO Pretraining")
-            model = EglintonNavModel(pretrained=True, normalize=True)
+            model = EglintonNavModel(pretrained=False, normalize=True)
 
 
             ckpt_path = "resnet34.ckpt"  # or .pt
@@ -228,7 +228,7 @@ if __name__ == "__main__":
         if args.pretrain_type  == "custom_ppgeo":
             print("CUSTOM PPGEO")
 
-            model = EglintonNavModel(pretrained=True, normalize=True)  
+            model = EglintonNavModel(pretrained=False, normalize=True)  
 
             ckpt_path = "resnet34_custom2.pt"
             raw = torch.load(ckpt_path, map_location="cpu")
@@ -293,9 +293,32 @@ if __name__ == "__main__":
             else:
                 raise ValueError("freeze mode must be one of: 'frozen','partial','unfrozen'")   
             
-        model.to(device)
-   
         
+
+
+        if args.pretrain_type  == "ImageNet":
+            print("IMAGENET")
+
+            model = EglintonNavModel(pretrained=True, normalize=True)
+
+            mode = args.freeze_mode
+
+            if mode == "frozen":
+                print("FROZEN")
+                for p in model.encoder.parameters():
+                    p.requires_grad = False
+            elif mode == "partial":
+                print("PARTIAL")
+                for name, p in model.encoder.named_parameters():
+                    p.requires_grad = name.startswith(("conv1", "bn1", "layer1"))
+            elif mode == "unfrozen":
+                print("UNFROZEN")
+                for p in model.encoder.parameters():
+                    p.requires_grad = True
+            else:
+                raise ValueError("freeze mode must be one of: 'frozen','partial','unfrozen'")    
+   
+        model.to(device)
 
     elif args.load_model:
         print(f"continuing training {model_path_name} from checkpoint")

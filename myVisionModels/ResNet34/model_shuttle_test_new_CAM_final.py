@@ -192,9 +192,9 @@ if __name__ == "__main__":
     #load image
     parser = argparse.ArgumentParser("Load model from checkpoint")
     parser.add_argument("--load_model", action="store_true")
-    #parser.add_argument("model_name", default="finished_models_new_final/ResNet34_shuttlebus_custom_ppgeo_frozen_lane_following_finetune_1.0.pth", type=str, nargs='?')
+    parser.add_argument("model_name", default="finished_models_new_final/ResNet34_shuttlebus_custom_ppgeo_frozen_lane_following_finetune_1.0.pth", type=str, nargs='?')
     #parser.add_argument("model_name", default="checkpoints_new_final/ppgeo_frozen_lane_following_finetune_1.0/ResNet34_shuttle_ppgeo_frozen_lane_following_finetune_1.0_3_0.0015_0.3584_0.3335.pth", type=str, nargs='?')
-    parser.add_argument("model_name", default="checkpoints_new_final/imagenet_frozen_lane_following_finetune_0.01/ResNet34_shuttle_imagenet_frozen_lane_following_finetune_0.01_2_0.0061_0.0135_0.1631.pth", type=str, nargs='?')
+    #parser.add_argument("model_name", default="checkpoints_new_final/imagenet_frozen_lane_following_finetune_0.01/ResNet34_shuttle_imagenet_frozen_lane_following_finetune_0.01_2_0.0061_0.0135_0.1631.pth", type=str, nargs='?')
     """parser.add_argument("model_fine_name", default="VMamba_shuttle_lane_following_finetune_7_0.0003_0.9266_0.8902.pth", type=str, nargs='?')
     parser.add_argument("model_pullin_name", default="VMamba_shuttle_pullin_11_0.0003_0.9749_0.9469.pth", type=str, nargs='?')
     parser.add_argument("model_reverse_name", default="VMamba_shuttle_reverse_11_0.0002_0.9605_0.9967.pth", type=str, nargs='?')

@@ -92,7 +92,8 @@ class ResnetEncoder(nn.Module):
                     bias=old_conv.bias
                 )
 
-                # If pretrained, average RGB weights to init grayscale conv
+                # ONLY needed if pretrained ImageNet, average RGB weights to init grayscale conv (only in train script), but if ppgeo, the averaging is done in train script anyway so doesnt matter.
+                #in the nuway2 version of this script, i remove this block of code entirely as models have already been trained and just have to torch load the ckpt files which are already 1 channel
                 if pretrained:
                     with torch.no_grad():
                         self.encoder.conv1.weight[:] = old_conv.weight.mean(dim=1, keepdim=True)
