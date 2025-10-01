@@ -3,17 +3,12 @@
 # This software is licensed under the terms of the Monodepth2 licence
 # which allows for non-commercial use only, the full terms of which are made
 # available in the LICENSE file.
-
 from __future__ import absolute_import, division, print_function
-
 import numpy as np
-
 import torch
 import torch.nn as nn
 import torchvision.models as models
 import torch.utils.model_zoo as model_zoo
-
-
 class ResNetMultiImageInput(models.ResNet):
     """Constructs a resnet model with varying number of input images.
     Adapted from https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py
@@ -30,15 +25,12 @@ class ResNetMultiImageInput(models.ResNet):
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
-
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
             elif isinstance(m, nn.BatchNorm2d):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
-
-
 def resnet_multiimage_input(num_layers, pretrained=False, num_input_images=1):
     """Constructs a ResNet model.
     Args:
@@ -50,36 +42,29 @@ def resnet_multiimage_input(num_layers, pretrained=False, num_input_images=1):
     blocks = {18: [2, 2, 2, 2], 50: [3, 4, 6, 3]}[num_layers]
     block_type = {18: models.resnet.BasicBlock, 50: models.resnet.Bottleneck}[num_layers]
     model = ResNetMultiImageInput(block_type, blocks, num_input_images=num_input_images)
-
     if pretrained:
-        raise RuntimeError("Pretrained weights not available offline. Please set pretrained=False.")
+        loaded = model_zoo.load_url(models.resnet.model_urls['resnet{}'.format(num_layers)])
+        loaded['conv1.weight'] = torch.cat(
+            [loaded['conv1.weight']] * num_input_images, 1) / num_input_images
+        model.load_state_dict(loaded)
     return model
-
-
 class ResnetEncoder(nn.Module):
     """Pytorch module for a resnet encoder
     """
     def __init__(self, num_layers, pretrained, num_input_images=1):
         super(ResnetEncoder, self).__init__()
-
         self.num_ch_enc = np.array([64, 64, 128, 256, 512])
-
         resnets = {18: models.resnet18,
                    34: models.resnet34,
                    50: models.resnet50,
                    101: models.resnet101,
                    152: models.resnet152}
-
         if num_layers not in resnets:
             raise ValueError("{} is not a valid number of resnet layers".format(num_layers))
-
         if num_input_images > 1:
             self.encoder = resnet_multiimage_input(num_layers, pretrained, num_input_images)
         else:
-            if pretrained:
-                raise RuntimeError("Pretrained weights not available offline. Please set pretrained=False.")
-            self.encoder = resnets[num_layers](pretrained=False)
-
+            self.encoder = resnets[num_layers](pretrained)
             # If grayscale input requested
             if num_input_images == 1:
                 old_conv = self.encoder.conv1
@@ -90,15 +75,9 @@ class ResnetEncoder(nn.Module):
                     padding=old_conv.padding,
                     bias=old_conv.bias
                 )
-
-                with torch.no_grad():
-                    if old_conv.weight.shape[1] == 3:
-                        self.encoder.conv1.weight.copy_(old_conv.weight.mean(1, keepdim=True))
-                    # else keep Kaiming init that nn.Conv2d set
-
+            # Don't copy weights, since we load from a checkpoint anyway
         if num_layers > 34:
             self.num_ch_enc[1:] *= 4
-
     def forward(self, input_image, normalize=False):
         self.features = []
         if normalize:
@@ -114,5 +93,4 @@ class ResnetEncoder(nn.Module):
         self.features.append(self.encoder.layer2(self.features[-1]))
         self.features.append(self.encoder.layer3(self.features[-1]))
         self.features.append(self.encoder.layer4(self.features[-1]))
-
         return self.features

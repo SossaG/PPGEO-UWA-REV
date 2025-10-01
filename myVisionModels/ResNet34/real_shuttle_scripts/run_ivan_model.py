@@ -5,12 +5,10 @@ from rclpy.qos import qos_profile_sensor_data
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
-
 import torch
 import torch.nn as nn
 from einops import rearrange, repeat
 from torchvision import datasets, models, transforms
-
 from std_msgs.msg import Float32, Int32MultiArray, String, Int32, Float32MultiArray
 from python_nodes_interfaces.msg import BoolStamped, Int32Stamped, Float32MultiArrayStamped#, StringMultiArrayStamped
 from geometry_msgs.msg import Twist, TwistStamped
@@ -19,19 +17,14 @@ import os
 import time
 import random
 import PIL
-
 import sys
 sys.path.append('/workspace/ros_mamba_ws/ivanModel')
-
 # from shuttlebusTrain import ViM
 from new_resnet_model_final import EglintonNavModel
-
-
 bridge = CvBridge()
 #driving_mode node 0: manual 1: GPS 2: lane following 3: pullin 4: reverse 5: dual steering
 # Script_Path = os.path.dirname(os.path.abspath(__file__))
 Model_Path = "/workspace/ros_mamba_ws/models"
-
 appliedTransform = transforms.Compose(
     [
         transforms.ToTensor(),
@@ -41,7 +34,6 @@ appliedTransform = transforms.Compose(
         
     ]
 )
-
 class ppgeo_publisher(Node):
     def __init__(self):
         super().__init__('nn_ppgeo_publisher')
@@ -62,34 +54,27 @@ class ppgeo_publisher(Node):
             10)
         self.img_subscription  # prevent unused variable warning
         self.mode_subscription  # prevent unused variable warning
-        self.lane_following_cmd0 = "ResNet34_shuttlebus_custom_ppgeo_frozen_lane_following_finetune_1.0.pth"
+        self.lane_following_cmd0 = "ResNet34_shuttlebus_ImageNet_unfrozen_lane_following_finetune_1.0.pth"
         self.model_path = os.path.join(Model_Path, self.lane_following_cmd0)
         self.lane_following_cmd1 = "ResNet34_shuttlebus_ppgeo_frozen_lane_following_finetune_1.0.pth"
         self.model_pullin_path = os.path.join(Model_Path, self.lane_following_cmd1)
-        self.lane_following_cmd2 = "ResNet34_shuttlebus_ppgeo_frozen_lane_following_finetune_1.0.pth"
+        self.lane_following_cmd2 = "ResNet34_shuttlebus_custom_ppgeo_frozen_lane_following_finetune_1.0.pth"
         self.model_reverse_path = os.path.join(Model_Path, self.lane_following_cmd2)
-        self.lane_following_cmd3 = "ResNet34_shuttlebus_ppgeo_frozen_lane_following_finetune_1.0.pth"
+        self.lane_following_cmd3 = "ResNet34_shuttlebus_custom_ppgeo_unfrozen_lane_following_finetune_1.0.pth"
         self.model_dual_steering_path = os.path.join(Model_Path, self.lane_following_cmd3)
         
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         # print(sys.path)
-        self.model = EglintonNavModel(pretrained=True, normalize=True)
-
+        self.model = EglintonNavModel(pretrained=False, normalize=True)
         # print(self.model)
-        self.model_pullin =  EglintonNavModel(pretrained=True, normalize=True)
-
-        self.model_reverse = EglintonNavModel(pretrained=True, normalize=True)
-
-        self.model_dual_steering = EglintonNavModel(pretrained=True, normalize=True)
-
-
+        self.model_pullin =  EglintonNavModel(pretrained=False, normalize=True)
+        self.model_reverse = EglintonNavModel(pretrained=False, normalize=True)
+        self.model_dual_steering = EglintonNavModel(pretrained=False, normalize=True)
         self.nn_linear=0.1
         self.nn_angular=0.0
         self.driving_mode=7
         self.speed_multi=4.0
-
         _ckpt = torch.load(self.model_path, map_location=device)
-
         if isinstance(_ckpt, dict) and 'model_state_dict' in _ckpt:
             self.model.load_state_dict(_ckpt['model_state_dict'], strict=True)
         elif isinstance(_ckpt, dict) and 'state_dict' in _ckpt:
@@ -97,10 +82,7 @@ class ppgeo_publisher(Node):
         else:
             # fallback: assume raw state_dict-like mapping
             self.model.load_state_dict(_ckpt, strict=True)
-
-
         _ckpt2 = torch.load(self.model_pullin_path, map_location=device)
-
         if isinstance(_ckpt2, dict) and 'model_state_dict' in _ckpt2:
             self.model_pullin.load_state_dict(_ckpt2['model_state_dict'], strict=True)
         elif isinstance(_ckpt2, dict) and 'state_dict' in _ckpt2:
@@ -108,9 +90,7 @@ class ppgeo_publisher(Node):
         else:
             # fallback: assume raw state_dict-like mapping
             self.model_pullin.load_state_dict(_ckpt2, strict=True)
-
         _ckpt3 = torch.load(self.model_reverse_path, map_location=device)
-
         if isinstance(_ckpt3, dict) and 'model_state_dict' in _ckpt3:
             self.model_reverse.load_state_dict(_ckpt3['model_state_dict'], strict=True)
         elif isinstance(_ckpt3, dict) and 'state_dict' in _ckpt3:
@@ -118,9 +98,7 @@ class ppgeo_publisher(Node):
         else:
             # fallback: assume raw state_dict-like mapping
             self.model_reverse.load_state_dict(_ckpt3, strict=True)
-
         _ckpt4 = torch.load(self.model_dual_steering_path, map_location=device)
-
         if isinstance(_ckpt3, dict) and 'model_state_dict' in _ckpt4:
             self.model_dual_steering.load_state_dict(_ckpt4['model_state_dict'], strict=True)
         elif isinstance(_ckpt4, dict) and 'state_dict' in _ckpt4:
@@ -128,8 +106,6 @@ class ppgeo_publisher(Node):
         else:
             # fallback: assume raw state_dict-like mapping
             self.model_dual_steering.load_state_dict(_ckpt4, strict=True)
-
-
         # print(self.model.state_dict())
         self.model.eval()
         self.model_pullin.eval()
@@ -139,7 +115,6 @@ class ppgeo_publisher(Node):
         self.model_pullin.to(device)
         self.model_reverse.to(device)
         self.model_dual_steering.to(device)
-
         self.publisher1 = self.create_publisher(Twist, "nn_cmd_vel", 10)
         self.publisher2 = self.create_publisher(TwistStamped, "nn_cmd_vel_stamped", 10)
         self.publisher3 = self.create_publisher(Float32MultiArrayStamped, "scene_cat_stamped", 10)
@@ -153,27 +128,21 @@ class ppgeo_publisher(Node):
         nn_model_names_msg = String()
         nn_model_names_msg.data = ",".join(nn_model_names_list)
         self.publisher5.publish(nn_model_names_msg)
-
         #scene_cat node 0: empty bay 1: roundabout give away
         self.timer = self.create_timer(1/6, self.publish_msg)
-
         self.pre_img = np.zeros([1,240,400])
         self.cur_img = np.zeros([1,240,400])
-
         torch.manual_seed(1234)
         np.random.seed(1234)
         random.seed(1234)
         if device == "cuda":
             torch.cuda.manual_seed_all(1234)
-
         torch.backends.cuda.matmul.allow_tf32 = False
         torch.backends.cudnn.allow_tf32 = False
         torch.use_deterministic_algorithms(True)
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
         torch.set_float32_matmul_precision('high')
-
-
     def img_listener_callback(self, msg):
         #print("Got something!")
         cv_img = bridge.imgmsg_to_cv2(msg, desired_encoding='passthrough')
@@ -182,19 +151,15 @@ class ppgeo_publisher(Node):
             
         cropped_img = img[60:, 40:440]
         cropped_img = PIL.Image.fromarray(np.uint8(cropped_img), mode='L')
-
         cropped_img = appliedTransform(cropped_img)
         cropped_img = rearrange(cropped_img, "c h w -> 1 c h w")
-
         device = "cuda" if torch.cuda.is_available() else "cpu"
         img = cropped_img.to(device)
         
         self.cur_img = img
         speed = 0.0
         steering_angle = 0.0
-
         with torch.inference_mode(), torch.autocast('cuda', enabled=False):
-
             if self.driving_mode == 7:
     
                 speed, steering_angle = self.model(img)
@@ -236,12 +201,9 @@ class ppgeo_publisher(Node):
                 self.nn_linear = speed
                 self.nn_angular = steering_angle
         
-
     def mode_listener_callback(self, msg):
         #print("Got something!")
         self.driving_mode=msg.data
-
-
     def speed_mode_listener_callback(self, msg):
         #print("Got something!")
         self.speed_mode=msg.data
@@ -249,7 +211,6 @@ class ppgeo_publisher(Node):
             self.speed_multi=4.0
         else:
             self.speed_multi=5.4
-
     def publish_msg(self):
         msg = Twist()
         # print(self.nn_linear)
@@ -271,14 +232,11 @@ class ppgeo_publisher(Node):
         msg2.twist=msg
         msg2.header.stamp=rclpy.clock.Clock().now().to_msg()
         self.publisher2.publish(msg2)
-
 def main(args=None):
     rclpy.init(args=args)
     nn_cmd_publisher = ppgeo_publisher()
     rclpy.spin(nn_cmd_publisher)
-
     nn_cmd_publisher.destroy_node()
     rclpy.shutdown()
-
 if __name__ == '__main__':
     main()
