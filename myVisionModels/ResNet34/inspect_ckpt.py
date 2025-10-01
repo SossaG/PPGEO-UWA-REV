@@ -2,7 +2,7 @@ import torch
 import os
 
 # ✏️ EDIT THIS to point to your checkpoint or state_dict file
-ckpt_path = "finished_models_new_final/ResNet34_shuttlebus_custom_ppgeo_frozen_lane_following_finetune_0.01.pth"
+ckpt_path = "finished_models_new_final/ResNet34_shuttlebus_custom_ppgeo_frozen_lane_following_finetune_1.0.pth"
 
 def is_state_dict_only(ckpt_data):
     return isinstance(ckpt_data, dict) and all(isinstance(v, torch.Tensor) for v in ckpt_data.values())

@@ -214,8 +214,13 @@ if __name__ == "__main__":
                     p.requires_grad = False
             elif mode == "partial":
                 print("PARTIAL")
-                for name, p in model.encoder.named_parameters():
-                    p.requires_grad = name.startswith(("conv1", "bn1", "layer1"))
+                for name, param in model.named_parameters():
+                    # Unfreeze only conv1, bn1, and layer1 inside encoder
+                    if name.startswith(("encoder.encodere.conv1", "encoder.encoder.bn1", "encoder.encoder.layer1")):
+                        param.requires_grad = True
+                    else:
+                        param.requires_grad = False
+
             elif mode == "unfrozen":
                 print("UNFROZEN")
                 for p in model.encoder.parameters():
@@ -260,9 +265,12 @@ if __name__ == "__main__":
                 for p in model.encoder.parameters():
                     p.requires_grad = False
             elif mode == "partial":
-                print("PARTIAL")
-                for name, p in model.encoder.named_parameters():
-                    p.requires_grad = name.startswith(("conv1", "bn1", "layer1"))
+                for name, param in model.named_parameters():
+                    # Unfreeze only conv1, bn1, and layer1 inside encoder
+                    if name.startswith(("encoder.encodere.conv1", "encoder.encoder.bn1", "encoder.encoder.layer1")):
+                        param.requires_grad = True
+                    else:
+                        param.requires_grad = False
             elif mode == "unfrozen":
                 print("UNFROZEN")
                 for p in model.encoder.parameters():
@@ -284,8 +292,12 @@ if __name__ == "__main__":
                     p.requires_grad = False
             elif mode == "partial":
                 print("PARTIAL")
-                for name, p in model.encoder.named_parameters():
-                    p.requires_grad = name.startswith(("conv1", "bn1", "layer1"))
+                for name, param in model.named_parameters():
+                    # Unfreeze only conv1, bn1, and layer1 inside encoder
+                    if name.startswith(("encoder.encodere.conv1", "encoder.encoder.bn1", "encoder.encoder.layer1")):
+                        param.requires_grad = True
+                    else:
+                        param.requires_grad = False
             elif mode == "unfrozen":
                 print("UNFROZEN")
                 for p in model.encoder.parameters():
@@ -309,18 +321,29 @@ if __name__ == "__main__":
                     p.requires_grad = False
             elif mode == "partial":
                 print("PARTIAL")
-                for name, p in model.encoder.named_parameters():
-                    p.requires_grad = name.startswith(("conv1", "bn1", "layer1"))
+                for name, param in model.named_parameters():
+                    # Unfreeze only conv1, bn1, and layer1 inside encoder
+                    if name.startswith(("encoder.encodere.conv1", "encoder.encoder.bn1", "encoder.encoder.layer1")):
+                        param.requires_grad = True
+                    else:
+                        param.requires_grad = False
             elif mode == "unfrozen":
                 print("UNFROZEN")
                 for p in model.encoder.parameters():
                     p.requires_grad = True
             else:
-                raise ValueError("freeze mode must be one of: 'frozen','partial','unfrozen'")    
-   
+                raise ValueError("freeze mode must be one of: 'frozen','partial','unfrozen'")  
+
+
+
+        #log which layers are being frozen to double check
+        for name, param in model.named_parameters():
+            print(f"{name}: requires_grad={param.requires_grad}")
+
+
         model.to(device)
 
-    elif args.load_model:
+    elif args.load_model: #think i have to add more to this for my new final model definition
         print(f"continuing training {model_path_name} from checkpoint")
         model = EglintonNavModel(pretrained=True, normalize=True).to(device)
         checkpoint = torch.load(model_path_name, map_location=device)

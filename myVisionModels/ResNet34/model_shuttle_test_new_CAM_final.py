@@ -225,7 +225,12 @@ if __name__ == "__main__":
     if device == "cuda":
         torch.cuda.manual_seed_all(1234)"""
 
+    """#just to see names of keys of the nav model to confirm that my model does auto prefix with ecnocer.encoder. which it does
     model = EglintonNavModel(pretrained=True, normalize=True)
+    print("🔎 Listing all parameter names in the model:")
+    for name, param in model.named_parameters():
+        print(name, "requires_grad=", param.requires_grad)"""
+
     _ckpt = torch.load(args.model_name, map_location=device)
     if isinstance(_ckpt, dict):
         # common keys used in saved checkpoints
