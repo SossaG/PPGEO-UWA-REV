@@ -224,9 +224,13 @@ if __name__ == "__main__":
     """torch.manual_seed(1234)
     if device == "cuda":
         torch.cuda.manual_seed_all(1234)"""
-
-    """#just to see names of keys of the nav model to confirm that my model does auto prefix with ecnocer.encoder. which it does
+    
+    
     model = EglintonNavModel(pretrained=True, normalize=True)
+
+    
+    """#just to see names of keys of the nav model to confirm that my model does auto prefix with ecnocer.encoder. which it does
+    
     print("🔎 Listing all parameter names in the model:")
     for name, param in model.named_parameters():
         print(name, "requires_grad=", param.requires_grad)"""

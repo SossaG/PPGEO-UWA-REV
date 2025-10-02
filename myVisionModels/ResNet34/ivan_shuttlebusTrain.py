@@ -216,7 +216,7 @@ if __name__ == "__main__":
                 print("PARTIAL")
                 for name, param in model.named_parameters():
                     # Unfreeze only conv1, bn1, and layer1 inside encoder
-                    if name.startswith(("encoder.encodere.conv1", "encoder.encoder.bn1", "encoder.encoder.layer1")):
+                    if name.startswith(("encoder.encoder.conv1", "encoder.encoder.bn1", "encoder.encoder.layer1", "nav.")):
                         param.requires_grad = True
                     else:
                         param.requires_grad = False
@@ -267,7 +267,7 @@ if __name__ == "__main__":
             elif mode == "partial":
                 for name, param in model.named_parameters():
                     # Unfreeze only conv1, bn1, and layer1 inside encoder
-                    if name.startswith(("encoder.encodere.conv1", "encoder.encoder.bn1", "encoder.encoder.layer1")):
+                    if name.startswith(("encoder.encoder.conv1", "encoder.encoder.bn1", "encoder.encoder.layer1", "nav.")):
                         param.requires_grad = True
                     else:
                         param.requires_grad = False
@@ -294,7 +294,7 @@ if __name__ == "__main__":
                 print("PARTIAL")
                 for name, param in model.named_parameters():
                     # Unfreeze only conv1, bn1, and layer1 inside encoder
-                    if name.startswith(("encoder.encodere.conv1", "encoder.encoder.bn1", "encoder.encoder.layer1")):
+                    if name.startswith(("encoder.encoder.conv1", "encoder.encoder.bn1", "encoder.encoder.layer1", "nav.")):
                         param.requires_grad = True
                     else:
                         param.requires_grad = False
@@ -323,7 +323,7 @@ if __name__ == "__main__":
                 print("PARTIAL")
                 for name, param in model.named_parameters():
                     # Unfreeze only conv1, bn1, and layer1 inside encoder
-                    if name.startswith(("encoder.encodere.conv1", "encoder.encoder.bn1", "encoder.encoder.layer1")):
+                    if name.startswith(("encoder.encoder.conv1", "encoder.encoder.bn1", "encoder.encoder.layer1", "nav.")):
                         param.requires_grad = True
                     else:
                         param.requires_grad = False
